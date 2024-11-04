@@ -1,0 +1,34 @@
+%YAML:1.0
+---
+# model1
+max_match_distance: 0.5
+max_match_yaw_diff: 0.75
+
+# s2qxyz: 20.0
+# s2qyaw: 100.0
+# s2qr: 80.0
+# r_xyz_factor: 0.05
+# r_yaw: 0.02
+s2qxyz: 250.0
+s2qyaw: 90.0
+s2qr: 250.0
+r_xyz_factor: 0.032
+r_yaw: 0.016
+
+
+# model2
+
+max_match_distance_: 0.5
+max_match_yaw_diff_: 0.5
+
+s2qxyz_: 225.0
+s2qyaw_: 50.0
+s2qr_: 250.0
+r_xyz_factor_: 0.022
+r_yaw_: 0.025
+
+# react_time
+react_time_0: 0.02
+react_time_1: 0.02
+react_time_2_8rad: 0.68
+react_time_2_10rad: 0.110
