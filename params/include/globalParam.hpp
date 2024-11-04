@@ -27,7 +27,7 @@ typedef struct
     uint8_t status;        // 状态位，/5==0自己为红色，/5==0自己为蓝色，%5==0为自瞄，%5==1为小符，%5==3为大符
     uint16_t bullet_v;     // 上一次发射的弹速，单位为米每秒
     uint8_t armor_flag;    // 敌方3-5号车是否为大装甲板(即平衡车)，为二进制转十进制，如345全为平衡，为111，输入7，只有3为平衡，为100，输入4
-    uint32_t predict_time; // 在电控时间戳为predict_time开火
+    uint32_t predict_time; 
     float x_a;             // 装甲板在世界坐标系(云台pitch、yaw为0时的相机坐标系)下的x坐标
     float y_a;             // 装甲板在世界坐标系下的y坐标
     float z_a;             // 装甲板在世界坐标系下的z坐标

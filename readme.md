@@ -1,12 +1,12 @@
-# 2023年笃行战队视觉组代码文档
+# 2024年笃行战队视觉组代码文档
 
 # 等待修复
 
-1. 速度函数收敛过慢
-2. 坐标系转换有问题
-3. 能量机关策略更新，加入支持神经网络的框架
-4. 能量机关预测更新，以及部分的鲁棒性同步
-5. 
+1. EKF所维护的运动模型有未可知的玄学问题，某些数值收敛过慢。
+2. 自瞄维护的两个补偿值难以做到尽善尽美，火控框架仍有改进空间
+3. Pnp解算得到的初始旋转角不够准确，得到位姿受曝光影响大，有较大优化空间。
+4. 能量机关策略更新，加入支持神经网络的框架
+5. 能量机关预测更新，以及部分的鲁棒性同步
 
 
 # 简介
@@ -175,17 +175,17 @@ CMakeLists，用于编译代码，进行相关配置，同时在其中可以修�
 | 预测时间    | 4    | uint32_t | ms   |
 | crc校验位   | 2    | uint16_t | /    |
 
-## 自瞄时视觉发给电控的信息
+## 自瞄时视觉发给电控的信息(有用)
 
-| 信息含义  | 长度 | 数据类型 | 单位 |
-| --------- | ---- | -------- | ---- |
-| x坐标     | 4    | float    | mm   |
-| y坐标     | 4    | float    | mm   |
-| z坐标     | 4    | float    | mm   |
-| 状态位    | 1    | uint8_t  | /    |
-| pitch角   | 4    | float    | 弧度 |
-| yaw角     | 4    | float    | 弧度 |
-| crc校验位 | 2    | uint16_t | /    |
+| 信息含义                              | 长度 | 数据类型 | 单位     |
+| ------------------------------------- | ---- | -------- | -------- |
+| x_a:装甲板中心预测点在相机坐标系下的x | 4    | float    | mm       |
+| y_a:类似x_a                           | 4    | float    | mm       |
+| z_a:类似x_a                           | 4    | float    | mm       |
+| armor_flag:是否开火状态位             | 1    | uint8_t  | /        |
+| vx_c:平动瞄准补偿                     | 4    | float    | 比例系数 |
+| vy_c:旋转瞄准补偿                     | 4    | float    | 比例系数 |
+| crc校验位                             | 2    | uint16_t | /        |
 
 ## 状态位含义
 
@@ -213,75 +213,6 @@ CMakeLists，用于编译代码，进行相关配置，同时在其中可以修�
 ### Translator
 
 串口消息联合体，其联合内容包括一个长度为23的字符数组、一个自瞄时的结构体、一个打符时的结构体。
-
-## armor
-
-### AimAuto
-
-#### AimAuto(GlobalParam **gp*)
-
-构造函数会读取GlobalParam(以指针的方式)，并且初始化推理器(加载模型)。
-
-#### ~AimAuto()
-
-空，使用默认方式析构。
-
-#### void AimAuto::AimAutoNew(cv::Mat &*src*, Translator &*ts*)
-
-输入图片以及串口信息，执行完毕后在串口信息中覆盖信息，写入目标装甲板中心在相机坐标系下的x、y、z坐标。
-
-1. 将图片以及ArmorObject数组输入推理器的detect方法中，运行结果为ArmorObject数组中被存放若干被识别到的装甲板，其中主要需要使用的信息是装甲板的四个角点。
-2. 通过装甲板在像素坐标系下的中心点距离屏幕中心点的x坐标距离绝对值对ArmorObject数组进行排序，这是因为需要按照率先瞄准距离操作手准星最近的装甲板这一策略。
-3. 判断装甲板的颜色与自身车辆的颜色是否不同，如果不同，对装甲板进行PnP解算，求解出装甲板中心点在相机坐标系下的三维坐标，并存入队列。
-4. 将队列中第一个元素写入信息。
-
-### inference
-
-本代码暂时为沈航战队的代码，使用四点神经网络对于图片进行推理并且对输出进行解码。
-
-#### static inline int argmax(const float **ptr*, int *len*)
-
-内联函数，输入浮点指针以及需要判断的长度，返回i，`ptr[i]`为长度中的最大项，此函数用于判断推理结果中哪个颜色或者类别的可能性最大。
-
-#### inline cv::Mat scaledResize(cv::Mat &*img*, Eigen::Matrix<float, 3, 3> &*transform_matrix*)
-
-内联函数，用于将图片改至需要的输入时的尺寸，同时生成transform_matrix，可以用于将在压缩后的像素坐标系下的四个角点转化为原图片下的角点。
-
-#### static void generate_grids_and_stride(const int *target_w*, const int *target_h*, std::vector\<int> &*strides*, std::vector\<GridAndStride> &*grid_strides*)
-
-静态函数，通过输入的图片尺寸以及锚框尺寸，依次生成strides中尺寸顺序的锚框，储存在grid_strides中。
-
-#### static void generateYoloxProposals(std::vector\<GridAndStride> *grid_strides*, const float **feat_ptr*,                                   Eigen::Matrix<float, 3, 3> &*transform_matrix*, float *prob_threshold*, std::vector\<ArmorObject> &*objects*)
-
-静态函数，从feat_ptr指针，也就是整体推理的输出的内存地址中依次取出float数据，目前神经网络中的数据，一组数据一共有21个float数据，其中先是锚框中四个角点(从左上角开始逆时针为1、2、3、4)的x坐标与y坐标，xy为一组共四组，之后是objectness，也就是该锚框中可能确实有装甲板的可能性，然后是四种颜色的期望(依次为蓝色、红色、无色、紫色)，以及八种类别的期望(依次尚且不清楚，需要尝试)，之后取出最可能的颜色与类别，假如说objectness大于设定的阈值，则将其信息推入objects，四点存入object.pts。
-
-#### static inline float intersection_area(const ArmorObject &*a*, const ArmorObject &*b*)
-
-内联静态函数，计算面积的交集大小。
-
-#### static void nms_sorted_bboxes(std::vector\<ArmorObject> &*faceobjects*, std::vector\<int> &*picked*, float *nms_threshold*)
-
-静态函数，将输入的faceobjects中每一种颜色x种类的类别中期望最大的作为picked，之后将全部的同样是该类别并且面积与期望最大的的交集超过阈值的apex数据推入最大的该object的pts，用于之后的去平均。
-
-#### static void decodeOutputs(const float **prob*, std::vector\<ArmorObject> &*objects*, Eigen::Matrix<float, 3, 3> &*transform_matrix*, const int *img_w*, const int *img_h*)
-
-静态函数，解码输入的prob地址下的全部的数据，同时将结果输入objects，将压缩后图片以及压缩前图片的转换矩阵输入，依据的是图片的压缩后的长宽。其中先划分锚框，之后解码，并且将数据按照objectness的大小从大到小排序，按照要求取前128个，之后按照类别分类储存。
-
-#### ArmorDetector::ArmorDetector()
-
-无参构造函数，什么也不做。
-
-#### ArmorDetector::~ArmorDetector()
-
-析构函数，什么也不做。
-
-#### bool ArmorDetector::initModel(std::string *path*)
-
-初始化模型的函数，通过输入的路径加载模型。
-
-#### bool ArmorDetector::detect(cv::Mat &*src*, std::vector\<ArmorObject> &*objects*)
-
-主函数，先对输入的图片进行尺寸修改，之后分离成三个通道输入模型进行推理，之后对输出数据进行解码，并且对于每一类数据的apex四点取均值求出四个角点在像素坐标系下的坐标，并计算其面积。
 
 # 调参细节
 
