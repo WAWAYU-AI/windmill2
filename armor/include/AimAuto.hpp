@@ -112,7 +112,6 @@ private:
     int level_count[3];               // use for show level_count
 
     // use for y override
-    std::vector<std::pair<cv::Point3f, int>> y_camera_reserve; // reserve data from camera_axis,against the error from process of converting from the world_axis to the camera_axis
     std::vector<cv::Point3f> last_ycr;
     bool use_ycr;
 
@@ -157,36 +156,14 @@ private:
     double last_yaw;
     bool is_hitting_outpose;
     std::deque<double> rawYawArray;
-
+ 
     // ===Unused Variables=== //
-    // double cnt;
-    // int count;
-    // double last_y;
-    // double last_yaw;
-    // double forward_save;
-    // fftw_omega omega_filter;
-    // PredictShow preshow;
     Eigen::Vector3d predict_center;
     double time_save;
 
     void pnp_solve(rm_auto_aim::Armor &armor, Translator &ts, cv::Mat &src, Armor &tar, int number);
-    cv::Point3f findTarget(Translator &ts, double &time_add, cv::Mat &src);
-    cv::Point3f findTarget(Translator &ts, double pz, double pyaw, double &real_time, cv::Mat &src);
     void storeMessage(cv::Point3f target, Translator &ts);
-    void convertPoint(Translator &ts, cv::Point3f target, bool, cv::Mat &);
-    void showDist(std::deque<Armor> &tar_list, cv::Mat &src);
     bool updateTracker(Translator &ts, cv::Mat &src);
-    void put_state(Translator &ts, cv::Mat &src);
-
-    void fireControl(Translator &ts, cv::Mat &src);
-    void fireControl(Translator &ts0, Translator &ts1, cv::Mat &src);
-    double updateArmorSpeed(cv::Mat &src, Translator &ts);
-    double cal_ArmorSpeed(cv::Mat &src);
-    void camera2plot(Eigen::Vector3d &point, cv::Mat &src);
-    Eigen::Vector3d world2camera(std::vector<double> &input, Translator &ts);
-    Eigen::Vector3d world2camera(cv::Point3f input, Translator &ts, bool to_shoot);
-    cv::Point camera2pixel(Eigen::Vector3d &point);
-    int autoZoneChoose(cv::Mat &src, std::vector<double> &zone_, float value, double center);
     void getParam();
 
 public:

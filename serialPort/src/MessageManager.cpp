@@ -138,13 +138,7 @@ void MessageManager::read(Translator &ts, SerialPort &serialPort)
     }
     this->message_lock.unlock();
     // 如果长度为-1，为error，也就是串口连接出现问题，退出程序，并依靠外部的脚本使程序重新启动
-    /*if (len == -1 || len == 0)
-    {
-#ifdef THREADANALYSIS
-        printf("len == 0 || len == -1\n");
-#endif
-        std::exit(-1);
-    }*/
+
 #endif // NOPORT
 }
 void MessageManager::write(Translator &ts, SerialPort &serialPort)
@@ -198,12 +192,6 @@ void MessageManager::getFrame(cv::Mat &pic, Translator translator)
     // 如果是虚拟取流，从视频中拿一帧图片
     static float last_time = (float)translator.message.predict_time / 1000;
     float now_time = (float)translator.message.predict_time / 1000;
-    // for (int i = (now_time - last_time) * 50; i >= 0; i--)
-    // {
-
-    //     capture >> pic;
-    //     currentFrames++;
-    // }
     capture >> pic;
     // 当前帧数自加，用于记录当前的帧数，用于判断是否视频被播放完毕
     currentFrames++;
