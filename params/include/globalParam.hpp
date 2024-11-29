@@ -252,13 +252,16 @@ struct GlobalParam
     double threshold_low = 250.0;
     int armorStat = 0;
     bool isBigArmor[6] = {0, 1, 0, 0, 0, 0};
-    double max_match_distance = 0.5;
-    double max_match_yaw_diff = 0.75;
+    // double max_match_distance = 0.5;
+    // double max_match_yaw_diff = 0.75;
+    double cost_threshold = 1000;
+    double max_lost_frame = 10;
     // 卡尔曼滤波相关参数
     double s2qxyz = 250.0;           // 位置转移噪声
     double s2qyaw = 90.0;            // 角度转移噪声
     double s2qr = 250.0;             // 半径转移噪声
-    double r_xyz_factor = 0.032;     
+    double r_xy_factor = 0.032;  
+    double r_z = 1e-7; 
     double r_yaw = 0.016;  
 
     //===新加的===//

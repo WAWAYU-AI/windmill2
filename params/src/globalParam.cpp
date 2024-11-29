@@ -41,13 +41,14 @@ void GlobalParam::initGlobalParam(const int color)
     
     // 打开AimautoConfig配置文件
     fs.open(root_path + "/config/AimautoConfig.yaml", cv::FileStorage::READ);
-    fs["max_match_distance"] >> max_match_distance;
-    fs["max_match_yaw_diff"] >> max_match_yaw_diff;
+    fs["cost_threshold"] >> cost_threshold;
+    fs["max_lost_frame"] >> max_lost_frame;
     // 卡尔曼滤波相关参数
     fs["s2qxyz"] >> s2qxyz;              // 位置转移噪声
     fs["s2qyaw"] >> s2qyaw;              // 角度转移噪声
     fs["s2qr"] >> s2qr;                  // 半径转移噪声
-    fs["r_xyz_factor"] >> r_xyz_factor;     
+    fs["r_xy_factor"] >> r_xy_factor;     
+    fs["r_z"] >> r_z;     
     fs["r_yaw"] >> r_yaw;
     fs.release();
 
@@ -103,13 +104,14 @@ void GlobalParam::saveGlobalParam()
 
     // 打开AimautoConfig配置文件以写入参数
     fs.open("../config/AimautoConfig.yaml", cv::FileStorage::WRITE);
-    fs << "max_match_distance" << max_match_distance;
-    fs << "max_match_yaw_diff" << max_match_yaw_diff;
+    fs << "cost_threshold" << cost_threshold;
+    fs << "max_lost_frame" << max_lost_frame;
     // 卡尔曼滤波相关参数
     fs << "s2qxyz" << s2qxyz;                // 位置转移噪声
     fs << "s2qyaw" << s2qyaw;                // 角度转移噪声
     fs << "s2qr" << s2qr;                    // 半径转移噪声
-    fs << "r_xyz_factor" << r_xyz_factor;    
+    fs << "r_xy_factor" << r_xy_factor;     
+    fs << "r_z" << r_z;    
     fs << "r_yaw" << r_yaw;    
     fs.release();              
 

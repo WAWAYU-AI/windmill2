@@ -15,7 +15,8 @@ public:
 
     explicit ExtendedKalmanFilter(
         const VecVecFunc & f, const VecVecFunc & h, const VecMatFunc & j_f, const VecMatFunc & j_h,
-        const VoidMatFunc & u_q, const VecMatFunc & u_r, const Eigen::MatrixXd & P0);
+        const VoidMatFunc & u_q, const VecMatFunc & u_r, const VecVecFunc & nomolize_residual,
+        const Eigen::MatrixXd & P0, const Eigen::VectorXd & x0);
 
     // Set the initial state
     void setState(const Eigen::VectorXd & x0);
@@ -25,6 +26,10 @@ public:
 
     // Update the estimated state based on measurement
     Eigen::MatrixXd update(const Eigen::VectorXd & z);
+
+    Eigen::MatrixXd get_X(){
+        return x_post;
+    }
 
     private:
     // Process nonlinear vector function
@@ -43,6 +48,8 @@ public:
     // Measurement noise covariance matrix
     VecMatFunc update_R;
     Eigen::MatrixXd R;
+    // Nomalization residual for measurement
+    VecVecFunc nomolize_residual;
 
     // Priori error estimate covariance matrix
     Eigen::MatrixXd P_pri;
