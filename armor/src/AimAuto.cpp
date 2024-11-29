@@ -149,7 +149,7 @@ AimAuto::AimAuto(GlobalParam *gp) : dt(1e-3f), level_count{0, 0, 0}, restart_tim
     // tracker_0->lost_thres = tracker_1->lost_thres = 10;
 
     // 保存全局参数及其他初始化
-    det = new rm_auto_aim::Detector(*gp); // 初始化检测器
+    det = new Detector(*gp); // 初始化检测器
     this->gp = gp;
     this->tar_list.clear(); // 清空目标列表
     this->last_time_ = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -181,7 +181,7 @@ void AimAuto::AimAutoYHY(cv::Mat &src, Translator &ts)
     this->is_hitting_outpose = ts.message.status % 5 == 2;
     this->tar_list.clear();
     auto armors = det->detect(src, gp->color);
-    std::sort(armors.begin(), armors.end(), [&](const rm_auto_aim::Armor &la, const rm_auto_aim::Armor &lb)
+    std::sort(armors.begin(), armors.end(), [&](const UnsolvedArmor &la, const UnsolvedArmor &lb)
               { return abs((double)src.cols / 2 - ((la.left_light.top + la.right_light.top + la.left_light.bottom + la.right_light.bottom) / 4).x) < abs((double)src.cols / 2 - ((lb.left_light.top + lb.right_light.top + lb.left_light.bottom + lb.right_light.bottom) / 4).x); });
     for (auto armor : armors)
     {
@@ -234,7 +234,7 @@ void AimAuto::AimAutoYHY(cv::Mat &src, Translator &ts)
     // cv::imshow("result", src);
 #endif // DEBUGMODE
 }
-void AimAuto::pnp_solve(rm_auto_aim::Armor &armor, Translator &ts, cv::Mat &src, Armor &tar, int number)
+void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armor &tar, int number)
 {
     //===============pnp解算===============//
     if (this->isBigArmor.empty())
@@ -349,114 +349,114 @@ void AimAuto::pnp_solve(rm_auto_aim::Armor &armor, Translator &ts, cv::Mat &src,
 
 void AimAuto::NewTracker(Translator &ts, cv::Mat &src)
 {
-    if (restart_time == 0)
-    {
-        restart_time = this->time;
-        this->first_see = 1;
-    }
-    ts.message.armor_flag = 0;
-    if (armors_msg.armors.size() == 0)
-    {
-        last_ts = ts;
-        ts.message.status = 0;
-        if (this->shootKeeper > 0)
-        {
-            shootKeeper--;
-            ts.message.armor_flag = 11;
-        }
+//     if (restart_time == 0)
+//     {
+//         restart_time = this->time;
+//         this->first_see = 1;
+//     }
+//     ts.message.armor_flag = 0;
+//     if (armors_msg.armors.size() == 0)
+//     {
+//         last_ts = ts;
+//         ts.message.status = 0;
+//         if (this->shootKeeper > 0)
+//         {
+//             shootKeeper--;
+//             ts.message.armor_flag = 11;
+//         }
 
-#ifdef DEBUGMODE
-        if (ts.message.armor_flag >= 11)
-        {
-            cv::putText(src, "FIRE!", cv::Point(720 - 60, 540 - 80), cv::FONT_HERSHEY_PLAIN, 3, cv::Scalar(255, 255, 0), 3);
-        }
-#endif
-        return;
-    }
-    if (!this->updateTracker(ts, src))
-        return;
-    // auto p_ = findTarget(ts, time_add, src);
-    // storeMessage(p_, ts);
+// #ifdef DEBUGMODE
+//         if (ts.message.armor_flag >= 11)
+//         {
+//             cv::putText(src, "FIRE!", cv::Point(720 - 60, 540 - 80), cv::FONT_HERSHEY_PLAIN, 3, cv::Scalar(255, 255, 0), 3);
+//         }
+// #endif
+//         return;
+//     }
+//     if (!this->updateTracker(ts, src))
+//         return;
+//     // auto p_ = findTarget(ts, time_add, src);
+//     // storeMessage(p_, ts);
 
-#ifdef SENDCAMERA
-    // this->convertPoint(ts, p_, 1, src);
-#ifndef DEBUGMODE
-    printf("x:%.3lf|y:%.3lf|z:%.3lf\n", ts.message.x_a, ts.message.y_a, ts.message.z_a);
-    // printf("R:%.3lf|vyaw:%.3lf|Num:%d\n", this->r * (this->isClockwise > 0 ? 1.05 : 0.95), rawOmega, tracking_numb);
-    printf("yaw:%.4f|pitch:%.4f|flag:%d\n", ts.message.yaw, ts.message.pitch, ts.message.armor_flag);
-    printf("bcO:%.3lf|bcV:%.3lf\n", ts.message.vz_c, ts.message.vy_c);
-#endif
-    last_ts = ts;
-    if (this->shootKeeper > 0)
-    {
-        shootKeeper--;
-        ts.message.armor_flag = 11;
-    }
-    // printf("keeper:%d\n", shootKeeper);
-#ifdef DEBUGMODE
-    if (ts.message.armor_flag >= 11)
-    {
-        cv::putText(src, "FIRE!", cv::Point(720 - 60, 540 - 80), cv::FONT_HERSHEY_PLAIN, 3, cv::Scalar(255, 255, 0), 3);
-    }
-#endif
-    if (tracker_0->tracker_state == Tracker::LOST or tracker_0->tracker_state == Tracker::TEMP_LOST)
-    {
-        ts.message.armor_flag = 0;
-    }
+// #ifdef SENDCAMERA
+//     // this->convertPoint(ts, p_, 1, src);
+// #ifndef DEBUGMODE
+//     printf("x:%.3lf|y:%.3lf|z:%.3lf\n", ts.message.x_a, ts.message.y_a, ts.message.z_a);
+//     // printf("R:%.3lf|vyaw:%.3lf|Num:%d\n", this->r * (this->isClockwise > 0 ? 1.05 : 0.95), rawOmega, tracking_numb);
+//     printf("yaw:%.4f|pitch:%.4f|flag:%d\n", ts.message.yaw, ts.message.pitch, ts.message.armor_flag);
+//     printf("bcO:%.3lf|bcV:%.3lf\n", ts.message.vz_c, ts.message.vy_c);
+// #endif
+//     last_ts = ts;
+//     if (this->shootKeeper > 0)
+//     {
+//         shootKeeper--;
+//         ts.message.armor_flag = 11;
+//     }
+//     // printf("keeper:%d\n", shootKeeper);
+// #ifdef DEBUGMODE
+//     if (ts.message.armor_flag >= 11)
+//     {
+//         cv::putText(src, "FIRE!", cv::Point(720 - 60, 540 - 80), cv::FONT_HERSHEY_PLAIN, 3, cv::Scalar(255, 255, 0), 3);
+//     }
+// #endif
+//     if (tracker_0->tracker_state == Tracker::LOST or tracker_0->tracker_state == Tracker::TEMP_LOST)
+//     {
+//         ts.message.armor_flag = 0;
+//     }
 
-    this->closest2Armors.clear();
-    this->isBigArmor.clear();
+//     this->closest2Armors.clear();
+//     this->isBigArmor.clear();
 
-#endif // SENDCAMERA
+// #endif // SENDCAMERA
 }
 
-bool AimAuto::updateTracker(Translator &ts, cv::Mat &src)
-{
-    std::string t = "";
-    if (tracker_0->tracker_state == Tracker::LOST)
-    {
-        t = "LOST";
-    }
-    else if (tracker_0->tracker_state != Tracker::TEMP_LOST)
-    {
-        t = "TRAC";
-    }
-    cv::putText(src, t, cv::Point(50, 200), 1, 2, cv::Scalar(0, 255, 0));
-    if (!armors_msg.armors.empty())
-    {
-        if (tracker_0->tracker_state == Tracker::LOST)
-        {
-            dt = 0.01;
-            tracker_0->init(armors_msg);
-            tracker_1->init(armors_msg);
-        }
-        else
-        {
-            dt = this->time - this->last_time;
-            dt /= 1000;
-            int id = 0;
-            tracking_numb = tar_list[0].type;
-            tracker_0->update(armors_msg, src, tracking_numb);
-            tracker_1->update(armors_msg, src, tracking_numb);
-            last_time = this->time;
-        }
-        // std::cout << tracker_0->target_state << std::endl;
-        this->r = tracker_0->target_state(8);
-        return true;
-    }
-    else
-    {
-        if (tracker_0->tracker_state == Tracker::LOST)
-        {
-            return false;
-        }
-        else
-        {
-            time_add = this->time - this->last_time;
-            return true;
-        }
-    }
-}
+// bool AimAuto::updateTracker(Translator &ts, cv::Mat &src)
+// {
+//     std::string t = "";
+//     if (tracker_0->tracker_state == Tracker::LOST)
+//     {
+//         t = "LOST";
+//     }
+//     else if (tracker_0->tracker_state != Tracker::TEMP_LOST)
+//     {
+//         t = "TRAC";
+//     }
+//     cv::putText(src, t, cv::Point(50, 200), 1, 2, cv::Scalar(0, 255, 0));
+//     if (!armors_msg.armors.empty())
+//     {
+//         if (tracker_0->tracker_state == Tracker::LOST)
+//         {
+//             dt = 0.01;
+//             tracker_0->init(armors_msg);
+//             tracker_1->init(armors_msg);
+//         }
+//         else
+//         {
+//             dt = this->time - this->last_time;
+//             dt /= 1000;
+//             int id = 0;
+//             tracking_numb = tar_list[0].type;
+//             tracker_0->update(armors_msg, src, tracking_numb);
+//             tracker_1->update(armors_msg, src, tracking_numb);
+//             last_time = this->time;
+//         }
+//         // std::cout << tracker_0->target_state << std::endl;
+//         this->r = tracker_0->target_state(8);
+//         return true;
+//     }
+//     else
+//     {
+//         if (tracker_0->tracker_state == Tracker::LOST)
+//         {
+//             return false;
+//         }
+//         else
+//         {
+//             time_add = this->time - this->last_time;
+//             return true;
+//         }
+//     }
+// }
 
 void AimAuto::setTime(double t)
 {

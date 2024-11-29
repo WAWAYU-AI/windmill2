@@ -95,7 +95,7 @@ private:
     Tracker *tracker_1;
     Armors armors_msg;
     std::deque<Armor> tar_list;
-    rm_auto_aim::Detector *det;
+    Detector *det;
 
     // cal ArmorSpeed
     cv::Point3f current_world_state;
@@ -161,7 +161,7 @@ private:
     Eigen::Vector3d predict_center;
     double time_save;
 
-    void pnp_solve(rm_auto_aim::Armor &armor, Translator &ts, cv::Mat &src, Armor &tar, int number);
+    void pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armor &tar, int number);
     void storeMessage(cv::Point3f target, Translator &ts);
     bool updateTracker(Translator &ts, cv::Mat &src);
     void getParam();
@@ -184,5 +184,5 @@ public:
     // cv::Mat empty;
     // std::vector<double> last_p_world;
 };
-std::unique_ptr<rm_auto_aim::Detector> initDetector(int color);
+std::unique_ptr<Detector> initDetector(int color);
 #endif // AIMAUTO

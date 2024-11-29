@@ -17,10 +17,7 @@
 #include "number_classifier.hpp"
 #include "globalParam.hpp"
 
-namespace rm_auto_aim
-{
-    class Detector
-    {
+class Detector{    
     public:
         struct LightParams
         {
@@ -45,11 +42,11 @@ namespace rm_auto_aim
 
         Detector(GlobalParam &gp);
 
-        std::vector<Armor> detect(const cv::Mat &input, const int color);
+        std::vector<UnsolvedArmor> detect(const cv::Mat &input, const int color);
 
         cv::Mat preprocessImage(const cv::Mat &input);
         std::vector<Light> findLights(const cv::Mat &rbg_img, const cv::Mat &binary_img);
-        std::vector<Armor> matchLights(const std::vector<Light> &lights);
+        std::vector<UnsolvedArmor> matchLights(const std::vector<Light> &lights);
 
         // For debug usage
         cv::Mat getAllNumbersImage();
@@ -73,9 +70,7 @@ namespace rm_auto_aim
         ArmorType isArmor(const Light &light_1, const Light &light_2);
 
         std::vector<Light> lights_;
-        std::vector<Armor> armors_;
-    };
-
-} // namespace rm_auto_aim
+        std::vector<UnsolvedArmor> armors_;
+};
 
 #endif // ARMOR_DETECTOR__DETECTOR_HPP_
