@@ -114,161 +114,57 @@ enum GETARMORMODE
 };
 
 /**
- * @brief 全局参数结构体
+ * @brief 全局参数结构体，用于保存所有可以更改的参数或贯穿全局的状态量，请在对应yaml配置文件内修改其具体值，而不要在此文件内修改
  *
  *
  */
 struct GlobalParam
 {
-    //================全局部分================//
-
-    // 当前颜色
-    int color = BLUE;
-    // 当前获取armor中心点方法
-    int get_armor_mode = FLOODFILL;
+    //==============================全局状态量部分==============================//
+    int color = BLUE;                       // 当前颜色
+    // int get_armor_mode = FLOODFILL;      // 当前获取armor中心点方法
     // 调试信息，INFO等级的日志是否输出
-    int switch_INFO = ON;
-    // 调试信息，ERROR等级的日志是否输出
+    int switch_INFO = ON;                   // 调试信息，ERROR等级的日志是否输出
     int switch_ERROR = ON;
-    //================相机部分================//
+
+    //============================信息管理参数================================//
+    int message_hold_threshold = 5;
+    float fake_pitch = 0.0F;
+    float fake_yaw = 0.0F;
+    float fake_bullet_v = 25.0F;
+    uint8_t fake_status = 5;
+    float fake_now_time = 0;
+    float fake_predict_time = 0;
+
+    //==============================相机部分==============================//
     int attack_mode = ARMOR;
     // 当前使用的相机序号，只连接一个相机时为0，多个相机在取流时可通过cam_index选择设备列表中对应顺序的相机
     int cam_index = 0;
     //===曝光时间===//
     MV_CAM_EXPOSURE_AUTO_MODE enable_auto_exp = MV_EXPOSURE_AUTO_MODE_OFF;
-    float energy_exp_time = 200.0F;
-    float armor_exp_time = 290.0F;
+    float energy_exp_time = 200.0F;         // 能量机关曝光时间
+    float armor_exp_time = 290.0F;          // 装甲板曝光时间
     float height = 1080;
     float width = 1440;
     //===白平衡===/
     // 默认为目标为红色的白平衡
-    // 红色通道
-    int r_balance = 1500;
-    // 绿色通道
-    int g_balance = 1024;
-    // 蓝色通道
-    int b_balance = 4000;
-    // 红色通道
-    int e_r_balance = 1500;
-    // 绿色通道
-    int e_g_balance = 1024;
-    // 蓝色通道
-    int e_b_balance = 4000;
+    int r_balance = 1500;   // 红色通道
+    int g_balance = 1024;   // 绿色通道
+    int b_balance = 4000;   // 蓝色通道
+    int e_r_balance = 1500; // 红色通道
+    int e_g_balance = 1024; // 绿色通道
+    int e_b_balance = 4000; // 蓝色通道
     //===以下参数重点参与实际帧率的调节===//
-    // 图像格式，设置为Bayer RG8，更多图像格式可前往MVS的SDK中寻找
-    unsigned int pixel_format = PixelType_Gvsp_BayerRG8;
+    unsigned int pixel_format = PixelType_Gvsp_BayerRG8;    // 图像格式，设置为Bayer RG8，更多图像格式可前往MVS的SDK中寻找
     // 在经过测试之后，包括在官方SDK中没有调整Acquisition Frame Rate Control Enable的参数，不过在MVS软件中调试时此选项关闭后依然可以达到期望帧率
     //===其他参数===//
-    // 自动相机增益使能
-    MV_CAM_GAIN_MODE enable_auto_gain = MV_GAIN_MODE_OFF;
-    // 相机增益值
-    float gain = 17.0F;
-    // 相机伽马值，只有在伽马修正开启后有效
-    float gamma_value = 0.7F;
-    // 触发方式，从0至3依次为触发上升沿、下降沿、高电平、低电平
-    int trigger_activation = 0;
-    // 设置帧率，仅在不设置外触发时起效
-    float frame_rate = 180.0F;
-    // 触发模式，ON为外触发，OFF为内触发
-    MV_CAM_TRIGGER_MODE enable_trigger = MV_TRIGGER_MODE_OFF;
-    // 触发源
-    MV_CAM_TRIGGER_SOURCE trigger_source = MV_TRIGGER_SOURCE_LINE0;
-    //===============打符识别部分==============//
-
-    //====取图蒙板参数====//
-    // 蒙板左上角相对x坐标倍数，范围0～1，TL即Left Top
-    float mask_TL_x = 0.125F;
-    // 蒙板左上角相对y坐标倍数，范围0～1，TL即Left Top
-    float mask_TL_y = 0.0F;
-    // 蒙板矩形相对宽度倍数，范围0～1-mask_TL_x
-    float mask_width = 0.5F;
-    // 蒙板矩形相对高度倍数，范围0～1-mask_TL_y
-    float mask_height = 1.0F;
-
-    //====HSV二值化参数====//
-    int hmin = 84;  //<! l第一个最小值
-    int hmax = 101; //<! l第一个最大值
-    int smin = 36;  //<! s最小值
-    int smax = 255; //<! s最大值
-    int vmin = 46;  //<! v最小值
-    int vmax = 255; //<! v最大值
-    int e_hmin = 0;
-    int e_hmax = 20;
-    int e_smin = 35;
-    int e_smax = 255;
-    int e_vmin = 180;
-    int e_vmax = 255;
-    //====滤波开关====//
-    int switch_gaussian_blur = ON;
-
-    //====UI开关====//
-    int switch_UI_contours = ON;
-    int switch_UI_areas = ON;
-    int switch_UI = ON;
-
-    //====识别参数====//
-    int s_armor_min = 900;                    //<! 装甲板最小面积
-    int s_armor_max = 6000;                   //<! 装甲板最大面积
-    float armor_ratio_min = 1.3F;             //<! 装甲板最小长宽比(长/宽)，值可能为1.6
-    float armor_ratio_max = 2.1F;             //<! 装甲板最大长宽比(长/宽)
-    float s_armor_ratio_min = 0.5F;           //<! 装甲板最小面积比(轮廓面积/最小外包矩形面积)
-    float s_armor_ratio_max = 1.0F;           //<! 装甲板最大面积比(轮廓面积/最小外包矩形面积)
-    int s_winghat_min = 600;                  //<! 扇页上半部分最小面积
-    int s_winghat_max = 800;                  //<! 扇页上半部分最大面积
-    float winghat_ratio_min = 2.0F;           //<! 扇页上半部分最小长宽比(长/宽)
-    float winghat_ratio_max = 3.0F;           //<! 扇页上半部分最大长宽比(长/宽)
-    float s_winghat_ratio_min = 0.25F;        //<! 扇页上半部分最小面积比(轮廓面积/最小外包矩形面积)
-    float s_winghat_ratio_max = 0.4F;         //<! 扇页上半部分最大面积比(轮廓面积/最小外包矩形面积)
-    int s_armor_min_floodfill = 900;          //<! 使用漫水处理时装甲板最小面积
-    int s_armor_max_floodfill = 6000;         //<! 使用漫水处理时装甲板最大面积
-    float armor_ratio_min_floodfill = 0.7F;   //<! 使用漫水处理时装甲板最小长宽比(长/宽)
-    float armor_ratio_max_floodfill = 2.0F;   //<! 使用漫水处理时装甲板最大长宽比(长/宽)
-    float s_armor_ratio_min_floodfill = 0.5F; //<! 使用漫水处理时装甲板最小面积比(轮廓面积/最小外包矩形面积)
-    float s_armor_ratio_max_floodfill = 1.0F; //<! 使用漫水处理时装甲板最大面积比(轮廓面积/最小外包矩形面积)
-    int s_R_min = 250;                        //<! R最小面积
-    int s_R_max = 1900;                       //<! R最大面积，值可能为750
-    float R_ratio_min = 0.99F;                //<! R最小长宽比(长/宽)
-    float R_ratio_max = 1.5F;                 //<! R最大长宽比(长/宽)
-    float s_R_ratio_min = 0.5F;               //<! R最小面积比(轮廓面积/最小外包矩形面积)
-    float s_R_ratio_max = 1.0F;               //<! R最大面积比(轮廓面积/最小外包矩形面积)
-    float R_circularity_min = 0.6;            //<! R最小圆度
-    float R_circularity_max = 0.75;           //<! R最大圆度
-    float R_compactness_min = 15;             //<! R最小紧致度
-    float R_compactness_max = 25;             //<! R最大紧致度
-    int s_wing_min = 3000;                    //<! 扇页最小面积
-    int s_wing_max = 9500;                    //<! 扇页最大面积
-    float wing_ratio_min = 1.8F;              //<! 扇页最小长宽比(长/宽)
-    float wing_ratio_max = 2.5F;              //<! 扇页最大长宽比(长/宽)
-    float s_wing_ratio_min = 0.3F;            //<! 扇页最小面积比(轮廓面积/最小外包矩形面积)
-    float s_wing_ratio_max = 0.6F;            //<! 扇页最大面积比(轮廓面积/最小外包矩形面积)
-    int R = 700;                              //<! 能量机关半径 mm
-    float length = 0.68F;                     //<! 能量机关实际宽度
-    float hight = 1.2F;                       //<! 云台标准位置离R高度
-    float hit_dx = 6.50F;                     //<! 打击点距能量机关R水平距离
-    float constant_speed = 60.0F;             //<! 匀速转动角速度（小符）
-    int direction = 1;                        //<! 是否逆时针转动 1是-1不是
-    float init_k_ = 0.02F;                    //<! 空气摩擦系数
-    //===速度函数参数===//
-    float A = 0.912F; //<! A
-    float w = 1.942F; //<! w
-    float fai = 0.0F; //<! fai
-    //===膨胀操作参数===//
-    float dialte1 = 5.0F; //<! 第一次膨胀的参数
-    float dialte2 = 5.0F; //<! 第二次膨胀的参数
-    float dialte3 = 5.0F; //<! 第三次膨胀的参数
-    //===预测偏置参数===//
-    float re_time = 0.21F; //<! 0.06~0.1约等于半个装甲板
-    float thb = 60.0F;     //<! 二值化下阈值
-    float tht = 108.0F;    //<! 二值化上阈值
-    //===预测部分===//
-    float delta_t = 0.3F;
-
-    //===预测部分===//
-
-    int gap = 0;
-    int gap_control = 1;
-    float min_bullet_v = 16;
-    //===相机参数===//(打符)
+    MV_CAM_GAIN_MODE enable_auto_gain = MV_GAIN_MODE_OFF;   // 自动相机增益使能
+    float gain = 17.0F;             // 相机增益值
+    float gamma_value = 0.7F;       // 相机伽马值，只有在伽马修正开启后有效
+    int trigger_activation = 0;     // 触发方式，从0至3依次为触发上升沿、下降沿、高电平、低电平
+    float frame_rate = 180.0F;      // 设置帧率，仅在不设置外触发时起效
+    MV_CAM_TRIGGER_MODE enable_trigger = MV_TRIGGER_MODE_OFF;           // 触发模式，ON为外触发，OFF为内触发
+    MV_CAM_TRIGGER_SOURCE trigger_source = MV_TRIGGER_SOURCE_LINE0;     // 触发源
     // 内参矩阵参数
     double cx = 697.7909321;      //<! cx
     double cy = 559.5145959;      //<! cy
@@ -280,33 +176,49 @@ struct GlobalParam
     double k3 = 0;
     double p1 = 0;
     double p2 = 0;
-    //===R感兴趣区域===//
-    float R_roi_xl = 0.28F;  //<! 左边界倍率
-    float R_roi_yt = 0.65F;  //<! 上边界倍率
-    float R_roi_xr = 0.415F; //<! 右边界倍率
-    float R_roi_yb = 0.37F;  //<! 下边界倍率
-    cv::Mat K = (cv::Mat_<double>(3, 3) << fx, 0, cx, 0, fy, cy, 0, 0, 1);
-    cv::Mat distort_coeffs = (cv::Mat_<double>(1, 5) << k1, k2, p1, p2, k3);
-    int list_size = 30; //<! 时间、速度、角速度队列的大小
+
+    //============================装甲板识别相关参数============================//
+    double min_ratio = 0.02;
+    double max_ratio = 0.75;
+    double max_angle_l = 60.0;
+    double min_light_ratio = 0.5;
+    double min_small_center_distance = 0.8;
+    double max_small_center_distance = 2.9;
+    double min_large_center_distance = 3.2;
+    double max_large_center_distance = 6.0;
+    double max_angle_a = 60.0;
+    double num_threshold = 0.8;
+
+    int blue_threshold = 65;
+    int red_threshold = 70;
+
+    
     //============================自瞄相关参数===============================//
-    double threshold_low = 250;
+    double threshold_low = 250.0;
     int armorStat = 0;
     bool isBigArmor[6] = {0, 1, 0, 0, 0, 0};
-    //
-    //============================信息管理参数================================//
-    int message_hold_threshold = 5;
-    float fake_pitch = 0.0F;
-    float fake_yaw = 0.0F;
-    float fake_bullet_v = 25.0F;
-    uint8_t fake_status = 5;
-    float fake_now_time = 0;
-    float fake_predict_time = 0;
+    double max_match_distance = 0.5;
+    double max_match_yaw_diff = 0.75;
+    // 卡尔曼滤波相关参数
+    double s2qxyz = 250.0;           // 位置转移噪声
+    double s2qyaw = 90.0;            // 角度转移噪声
+    double s2qr = 250.0;             // 半径转移噪声
+    double r_xyz_factor = 0.032;     
+    double r_yaw = 0.016;  
 
     //===新加的===//
-    int realy_mid = 720;
-    double camera2shootBias = 0.0;
-    double pzy = 0.0;
+    // int realy_mid = 720;
+    // double camera2shootBias = 0.0;
+    // double pzy = 0.0;
 
-    int binary_thres = 100;
+    // int binary_thres = 100;
+
+    // GlobalParam(){
+    //     initGlobalParam(BLUE);
+    // }
+
+    void initGlobalParam(const int color);
+    void saveGlobalParam();
 };
+
 #endif // __GLOBALPARAM_HPP

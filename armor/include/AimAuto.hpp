@@ -47,20 +47,20 @@ private:
 
     // ===Predict and FireControl Variables=== //
 
-    cv::Point3f position_save; // almost unused
-    cv::Point pixel_center;    // almost unused
+    // cv::Point3f position_save; // almost unused
+    // cv::Point pixel_center;    // almost unused
 
-    double flt;         // bullet's flight time
-    double vyaw_zoom;   // use for vyaw control
-    double v_zoom;      // use for translational velocity control
-    double rawOmega;    // Original angular velocity (Radian)
-    double isClockwise; // -1.0 for not clockwise and +1.0 for clockwise
-    int position_gap;   // use for choose the armor,almost unused
+    // double flt;         // bullet's flight time
+    // double vyaw_zoom;   // use for vyaw control
+    // double v_zoom;      // use for translational velocity control
+    // double rawOmega;    // Original angular velocity (Radian)
+    // double isClockwise; // -1.0 for not clockwise and +1.0 for clockwise
+    // int position_gap;   // use for choose the armor,almost unused
 
-    int rotate_speed_level;        // 3-levels,larger for higher speed
-    int translational_speed_level; // 2-levels,larger for higher speed
-    int choose_ycr;                /*(Related to `AimAuto::y_camera_reserve`)
-                                    -1 is use Kalmen data,0 is choose left,1 is choose right*/
+    // int rotate_speed_level;        // 3-levels,larger for higher speed
+    // int translational_speed_level; // 2-levels,larger for higher speed
+    // int choose_ycr;                /*(Related to `AimAuto::y_camera_reserve`)
+                                    // -1 is use Kalmen data,0 is choose left,1 is choose right*/
 
     // ===Logic Control Variables=== //
     double last_time, time, restart_time;
@@ -69,25 +69,25 @@ private:
     std::vector<bool> isBigArmor; // only have one value
 
     // ===Kalmen Filter Variables=== //
-    // double r_xyz_factor;
-    // double r_yaw;
-    // double s2qxyz_;
-    // double s2qyaw_;
-    // double s2qr_;
-    struct TrackerConfigs
-    {
-        double max_match_distance;
-        double max_match_yaw_diff;
-        double r_xyz_factor;
-        double r_yaw;
-        double s2qxyz_;
-        double s2qyaw_;
-        double s2qr_;
-        TrackerConfigs() {}
-        TrackerConfigs(double t1, double t2, double t3, double t4, double t5, double t6, double t7) : max_match_distance(t1), max_match_yaw_diff(t2), r_xyz_factor(t3), r_yaw(t4), s2qxyz_(t5), s2qyaw_(t6), s2qr_(t7) {}
-    };
-    TrackerConfigs config0;
-    TrackerConfigs config1;
+    double r_xyz_factor;
+    double r_yaw;
+    double s2qxyz_;
+    double s2qyaw_;
+    double s2qr_;
+    // struct TrackerConfigs
+    // {
+    //     double max_match_distance;
+    //     double max_match_yaw_diff;
+    //     double r_xyz_factor;
+    //     double r_yaw;
+    //     double s2qxyz_;
+    //     double s2qyaw_;
+    //     double s2qr_;
+    //     TrackerConfigs() {}
+    //     TrackerConfigs(double t1, double t2, double t3, double t4, double t5, double t6, double t7) : max_match_distance(t1), max_match_yaw_diff(t2), r_xyz_factor(t3), r_yaw(t4), s2qxyz_(t5), s2qyaw_(t6), s2qr_(t7) {}
+    // };
+    // TrackerConfigs config0;
+    // TrackerConfigs config1;
     double time_add;
 
     // ===Global Data Containers=== //
@@ -95,7 +95,7 @@ private:
     Tracker *tracker_1;
     Armors armors_msg;
     std::deque<Armor> tar_list;
-    std::unique_ptr<rm_auto_aim::Detector> det;
+    rm_auto_aim::Detector *det;
 
     // cal ArmorSpeed
     cv::Point3f current_world_state;

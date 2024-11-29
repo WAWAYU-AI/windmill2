@@ -13,39 +13,74 @@
 #include <cmath>
 #include <numeric>
 #include <vector>
+#include <filesystem>
 
 #include "detector.hpp"
 #include "opencv2/highgui.hpp"
 
 namespace rm_auto_aim
 {
-    Detector::Detector(
-        const int bin_thres, const int color, const LightParams l, const ArmorParams a)
-        : binary_thres(bin_thres), detect_color(color), l(l), a(a)
-    {
+    Detector::Detector(GlobalParam &gp){
+        // int binary_thres = binary_threshold;
+        // int detect_color = color;
+        int color = gp.color;
+        this -> detect_color = color;
+        double min_ratio,
+            max_ratio,
+            max_angle_l,
+            min_light_ratio,
+            min_small_center_distance,
+            max_small_center_distance,
+            min_large_center_distance,
+            max_large_center_distance,
+            max_angle_a,
+            num_threshold;
+        min_ratio = gp.min_ratio;
+        max_ratio = gp.max_ratio;
+        max_angle_l = gp.max_angle_l;
+        min_light_ratio = gp.min_light_ratio;
+        min_small_center_distance = gp.min_small_center_distance;
+        max_small_center_distance = gp.max_small_center_distance;
+        min_large_center_distance = gp.min_large_center_distance;
+        max_large_center_distance = gp.max_large_center_distance;
+        max_angle_a = gp.max_angle_a;
+        num_threshold = gp.num_threshold;
+        this->red_threshold = gp.red_threshold;
+        this->blue_threshold = gp.blue_threshold;
+        binary_thres = color == RED? this -> red_threshold : this -> blue_threshold;
+        this->l = {
+            .min_ratio = min_ratio,
+            .max_ratio = max_ratio,
+            .max_angle = max_angle_l};
+
+        this->a = {
+            .min_light_ratio = 0.7,
+            .min_small_center_distance = min_small_center_distance,
+            .max_small_center_distance = max_small_center_distance,
+            .min_large_center_distance = min_large_center_distance,
+            .max_large_center_distance = max_large_center_distance,
+            .max_angle = max_angle_a};
+
+        // Init classifier
+        auto model_path = "../model/mlp.onnx";
+        auto label_path = "../model/label.txt";
+        std::vector<std::string> ignore_classes =
+            std::vector<std::string>{"negative"};
+        this -> classifier =
+            std::make_unique<rm_auto_aim::NumberClassifier>(model_path, label_path, num_threshold, ignore_classes);
     }
 
-    std::vector<Armor> Detector::detect(const cv::Mat &input)
+    std::vector<Armor> Detector::detect(const cv::Mat &input, const int color)
     {
-        // cv::Mat hsv;
-        // cv::Mat temp[3];
-        // cv::cvtColor(input, hsv, cv::COLOR_RGB2HSV);
-        // cv::split(hsv, temp);
-        // cv::imshow("Value", temp[2]);
-
+        this->binary_thres = color == RED? this->red_threshold : this->blue_threshold;
+        this->detect_color = color;
         binary_img = preprocessImage(input);
-        // cv::Mat gray_img;
-        // cv::cvtColor(input, gray_img, cv::COLOR_RGB2GRAY);
-        // cv::Mat binary_img;
-        // cv::threshold(gray_img, binary_img, binary_thres, 255, cv::THRESH_BINARY);
         using namespace cv;
-        // 显示图像
 #ifdef DEBUGCOLOR
         // cv::imshow("gray_img", gray_img);
         cv::imshow("binary", binary_img);
 #endif
-        if (this->detect_color == 1)
-        {
+        if (this->detect_color == 1){
             auto kernel = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
             cv::dilate(binary_img, binary_img, kernel, cv::Point(-1, -1), 2);
 #ifdef DEBUGCOLOR
@@ -54,8 +89,8 @@ namespace rm_auto_aim
         }
         else
         {
-            // auto kernel = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
-            // cv::dilate(binary_img, binary_img, kernel, cv::Point(-1, -1), 1);
+            auto kernel = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
+            cv::dilate(binary_img, binary_img, kernel, cv::Point(-1, -1), 1);
         }
 #ifdef DETAILEDINFO
 
@@ -68,13 +103,10 @@ namespace rm_auto_aim
         }
 #endif
         armors_ = matchLights(lights_);
-        // std::cout << "detect:3" << std::endl;
         if (!armors_.empty())
         {
             classifier->extractNumbers(input, armors_, this->detect_color);
-            // std::cout << "detect:4" << std::endl;
             classifier->classify(armors_);
-            // std::cout << "detect:5" << std::endl;
         }
         return armors_;
     }

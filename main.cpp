@@ -1,10 +1,7 @@
 #include "MessageManager.hpp"
 #include "SerialPort.hpp"
-#include "WMIdentify.hpp"
-#include "WMPredict.hpp"
 #include "camera.hpp"
 #include "globalParam.hpp"
-#include "globalParamInit.hpp"
 #include "globalText.hpp"
 #include <AimAuto.hpp>
 #include <UIManager.hpp>
@@ -21,9 +18,10 @@
 #include <pthread.h>
 #include <unistd.h>
 #define RESIZE 0.5
+
+GlobalParam gp;
 // 全局变量
 // 全局变量参数，这个参数存储着全部的需要的参数
-GlobalParam gp;
 MessageManager MManager(gp);
 // 全局地址参数，这个参数存储着全部的需要的地址
 address addr;
@@ -66,21 +64,21 @@ int main(int argc, char **argv)
 #endif // NOPORT
     // 输出日志，开始初始化
     pthread_t readThread;
-    pthread_t WMIThread;
+    pthread_t optionThread;
     // 开启线程
     pthread_create(&readThread, NULL, ReadFunction, serialPort);
-    pthread_create(&WMIThread, NULL, OperationFunction, serialPort);
+    pthread_create(&optionThread, NULL, OperationFunction, serialPort);
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
     CPU_SET(0, &cpuset); // 将线程绑定到CPU 0
 
-    if (pthread_setaffinity_np(WMIThread, sizeof(cpu_set_t), &cpuset) != 0) {
-        perror("Failed to set affinity for WMIThread");
+    if (pthread_setaffinity_np(optionThread, sizeof(cpu_set_t), &cpuset) != 0) {
+        perror("Failed to set affinity for optionThread");
         return 1;
     }
     
     // 开启线程成功，输出日志
-    pthread_join(WMIThread, NULL);
+    pthread_join(optionThread, NULL);
     return 0;
 }
 
@@ -106,19 +104,10 @@ void *OperationFunction(void *arg)
     printf("operation function init successful\n");
 #endif
     SerialPort *serialPort = (SerialPort *)arg;
-    // 实例化能量机关识别类
-    WMIdentify WMI(gp);
-    // 实例化自瞄类
-    AimAuto aim(&gp);
-    // 实例化UI类
-    UIManager UI;
-    // 重置能量机关识别类
-    WMI.clear();
-    // 实例化能量机关预测类
-    WMIPredict WMIPRE;
+    AimAuto aim(&gp);       // 实例化自瞄类
+    UIManager UI;           // 实例化UI类
 #ifndef VIRTUALGRAB
-    // 假如是现实取流，初始化相机
-    Camera camera(gp);
+    Camera camera(gp);      // 假如是现实取流，初始化相机
     camera.init();
 #endif // VIRTUALGRAB
 #ifdef DEBUGMODE
@@ -131,44 +120,34 @@ void *OperationFunction(void *arg)
     std::deque<cv::Point3f> points3d;
     // 储存当前时间，用于绘图
     std::deque<double> times;
-#endif // DEBUGMODE
+#endif
     //========================//
     uint8_t error_times{0};
-    while (1)
-    {
-        // std::chrono::milliseconds start_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        // std::chrono::system_clock::now().time_since_epoch());
+    while (1){
+
 #ifndef NOPORT
         MManager.copy(temp, translator);
-
 #else
-
-        MManager.FakeMessage(translator);
+        MManager.FakeMessage(translator);    // 假如没有串口，使用假数据
 #endif // NOPORT
-        if (MManager.CheckCrc(translator, 61))
+        if (MManager.CheckCrc(translator, 61))      // crc校验串口发来的数据
         {
-
 #ifndef NOPORT
             MManager.LogMessage(translator, gp);
-            // translator.message.status =3;
-            if (translator.message.status / 5 != gp.color)
-            {
+            if (translator.message.status / 5 != gp.color){      // 颜色改变，重新初始化参数
                 initGlobalParam(gp, addr, translator.message.status / 5);
             }
-            if (translator.message.armor_flag != gp.armorStat)
-            {
+            if (translator.message.armor_flag != gp.armorStat){  // 装甲板状态改变，重新初始化参数
                 MManager.ChangeBigArmor(translator);
             }
 #endif
-            if (translator.message.status % 5 != 0)
-            {
+            if (translator.message.status % 5 != 0){         // 依据自瞄或打符模式调整相应相机参数
 #ifndef VIRTUALGRAB
                 camera.change_attack_mode(ENERGY, gp);
 #endif
                 gp.attack_mode = ENERGY;
             }
-            else
-            {
+            else{
 #ifndef VIRTUALGRAB
                 camera.change_attack_mode(ARMOR, gp);
 #endif
@@ -192,7 +171,7 @@ void *OperationFunction(void *arg)
             aim.setTime(static_cast<double>(e.count()) * 1e-6);
             float t = (e - s).count();
             system("clear");
-            printf("Get Frame ms:%.4f\n", t * 1e-3);
+            printf("Get Frame ms:%.4f\n", t * 1e-3);      // 输出帧率
             if (t * 1e-3 > 8.0)
             {
                 error_times++;
@@ -204,102 +183,68 @@ void *OperationFunction(void *arg)
             }
 #endif
 #else
-            MManager.getFrame(pic, translator);
+            MManager.getFrame(pic, translator);     // 假如是虚拟取流，使用假数据
 #endif
-        }
-        else
-        {
-#ifdef THREADANALYSIS
-            // crc校验 串口发来的数据
+        }else{
             printf("crc was wrong\n");
-#endif
             continue;
         }
         // 如果图片为空，不执行
-        if (pic.empty() == 1)
-        {
-#ifdef THREADANALYSIS
+        if (pic.empty() == 1){
             printf("pic is empty\n");
-#endif
             exit(-1);
         }
 #ifdef RECORDVIDEO
         MManager.recordFrame(pic);
 #endif
 
-        WMI.JudgeClear(translator);
-
-        // 打击小符或者大符
-        if (translator.message.status % 5 == 1 || translator.message.status % 5 == 3)
-        {
-
+        // WMI.JudgeClear(translator);     
+        // ========================打符模式========================
+        if (translator.message.status % 5 == 1 || translator.message.status % 5 == 3){   
 #ifdef DEBUGMODE
-            times.push_back((double)translator.message.predict_time / 1000);
-#endif // DEBUGMODE
-#ifdef THREADANALYSIS
-            printf("status == 1 || status == 3\n");
+            // times.push_back((double)translator.message.predict_time / 1000);
 #endif
-
-            if (!WMIPRE.BulletSpeedProcess(translator, gp))
-            {
-                translator.message.status = 102;
-            }
-
-#ifdef USEWMNET
-            // 进行识别
-            WMI.startWMINet(pic, translator);
+            // if (!WMIPRE.BulletSpeedProcess(translator, gp)){
+            //     translator.message.status = 102;
+            // }
+#ifdef USEWMNET     // 使用网络识别能量机关
+            // WMI.startWMINet(pic, translator);
 #else
-            WMI.startWMIdentify(pic, translator);
+            // WMI.startWMIdentify(pic, translator);
 #endif
             // 进行预测
-
-            if (!WMIPRE.StartPredict(translator, gp, WMI))
-            {
-                translator.message.status = 102;
-                std::cout << "WM indentity failed" << std::endl;
-            }
-
+            // if (!WMIPRE.StartPredict(translator, gp, WMI)){
+            //     translator.message.status = 102;
+            //     std::cout << "WM indentity failed" << std::endl;
+            // }
 #ifdef DEBUGMODE
-            // 如果开启DEBUGMODE，使用UI类在图片上绘制UI
-            UI.receive_pic(pic);
-            // 通过按键进行调参，这里的顺序必须是先这个再按键
-            UI.windowsManager(gp, key, debug_t);
-#ifdef THREADANALYSIS
-            printf("picture showed\n");
+            // // 如果开启DEBUGMODE，使用UI类在图片上绘制UI
+            // UI.receive_pic(pic);
+            // // 通过按键进行调参，这里的顺序必须是先这个再按键
+            // UI.windowsManager(gp, key, debug_t);
+            // cv::imshow("result", pic);
+            // // 获取按键，用于动态调参
+            // key = cv::waitKey(debug_t);
+            // if (key == ' ')
+            //     cv::waitKey(0);
+            // if (key == 27)
+            //     return nullptr;
 #endif
-            cv::imshow("result", pic);
-
-            // 获取按键，用于动态调参
-            key = cv::waitKey(debug_t);
-            if (key == ' ')
-                cv::waitKey(0);
-            if (key == 27)
-                return nullptr;
-#endif // DEBUGMODE
-        }
-        else if (translator.message.status % 5 == 0)
-        {
-            //    std::cout<<1111<<std::endl;
-#ifdef THREADANALYSIS
-            // printf("status == 0\n");
-#endif
+        } 
+        // ========================自瞄模式========================
+        else if (translator.message.status % 5 == 0){     
 #ifdef DEBUGMODE
-
-            times.push_back((double)translator.message.predict_time / 1000);
-            // uint32_t time_stamp = translator.message.predict_time;
-#endif // DEBUGMODE
+            times.push_back((double)translator.message.predict_time / 1000);     // 记录时间
+#endif
             aim.AimAutoYHY(pic, translator);
-
             aim.NewTracker(translator, pic);
             MManager.HoldMessage(translator);
-
 #ifdef DEBUGMODE
             drawStat(points3d, times, translator);
             UI.receive_pic(pic);
             UI.windowsManager(gp, key, debug_t);
             cv::Mat tmp;
             cv::resize(pic, tmp, cv::Size((int)pic.size[1] * RESIZE, (int)pic.size[0] * RESIZE), cv::INTER_LINEAR);
-            // cv::resize(pic, tmp, cv::Size((int)pic.size[1] * 0.75, (int)pic.size[0] * 0.75), cv::INTER_LINEAR);
             cv::imshow("aimauto__", tmp);
 #endif // DEBUGMODE
 
@@ -317,7 +262,6 @@ void *OperationFunction(void *arg)
             send(new_socket, response.c_str(), response.size(), 0);
 #endif
 #endif
-
 #ifdef DEBUGMODE
             key = cv::waitKey(debug_t);
             if (key == ' ')
@@ -327,33 +271,19 @@ void *OperationFunction(void *arg)
 #endif // DEBUGMODE
         }
 #ifdef SHOW_FPS
-        // std::chrono::milliseconds end_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        //     std::chrono::system_clock::now().time_since_epoch());
-        // float total_time = (end_ms - start_ms).count() / 1000.0;
-        // alltime += total_time;
-        // times_++;
-        // printf("Current fps:%.4f | Average fps:%.4f\n", 1 / total_time, 1 / alltime * times_++);
         std::chrono::microseconds this_tick = std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::system_clock::now().time_since_epoch());
         double real_time = (this_tick - last_tick).count();
         last_tick = this_tick;
-        // alltime += real_time;
-        // printf("real_ms:%.4f|real_fps:%.4f|average_ms:%.4lf\n", real_time * 1e-3, 1 / real_time * 1e6, alltime / ++times_);
         double real_fps = 1 / real_time * 1e6;
-        // translator.message.vx_c = real_fps;
         printf("real_ms:%.4f|real_fps:%.4f\n", real_time * 1e-3, real_fps);
 #endif
         if (translator.message.status == 99)
             return nullptr;
-            // std::chrono::milliseconds end_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-            //     std::chrono::system_clock::now().time_since_epoch());
-            // float total_time = (end_ms - start_ms).count() / 1000.0;
-            // std::cout << "fpss: " << 1 / total_time << std::endl;
 
 #ifndef NOPORT
         MManager.UpdateCrc(translator, 61);
         MManager.write(translator, *serialPort);
-        // std::cout<<"status:"<<+translator.message.status <<std::endl;
 
 #ifdef SSH
         close(new_socket);

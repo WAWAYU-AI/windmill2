@@ -3,7 +3,6 @@
 #include <glog/logging.h>
 #include "SerialPort.hpp"
 #include "globalParam.hpp"
-#include "globalParamInit.hpp"
 #include "globalText.hpp"
 #include <cstddef>
 #include <cstdint>

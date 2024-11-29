@@ -1,7 +1,10 @@
 #include "MessageManager.hpp"
 #include "globalParam.hpp"
-#include "opencv2/core/mat.hpp"
-#include "opencv2/highgui.hpp"
+#include <opencv2/core.hpp>
+#include <opencv2/core/mat.hpp>
+#include <opencv2/core/types.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 #include <cmath>
 #include <iostream>
 #include <string>
@@ -182,10 +185,10 @@ void MessageManager::initParam(int color)
 
     // 如果颜色是红色，gp读取红色对应的参数
     if (color == RED)
-        initGlobalParam(*gp, addr, RED);
+        gp -> initGlobalParam(BLUE);
     // 如果颜色是蓝色，gp读取蓝色对应的参数
     else if (color == BLUE)
-        initGlobalParam(*gp, addr, BLUE);
+        gp ->initGlobalParam(BLUE);
 }
 void MessageManager::getFrame(cv::Mat &pic, Translator translator)
 {

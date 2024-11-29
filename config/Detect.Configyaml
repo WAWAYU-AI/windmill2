@@ -9,4 +9,7 @@ max_small_center_distance: 2.9
 min_large_center_distance: 3.2
 max_large_center_distance: 6.0
 max_angle_a: 60.0
-threshold: 0.8
+num_threshold: 0.8
+
+blue_threshold: 65
+red_threshold: 70

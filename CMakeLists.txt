@@ -10,17 +10,15 @@
     # find_package(Ceres REQUIRED)
     set(OpenCV_DIR /usr/local/lib/cmake/opencv4)
     find_package(OpenCV 4 QUIET)
-    # 打开虚拟取流 即用视频跑
     # aim debug
     # add_definitions(-DPOSESTIMATION)
     add_definitions(-DSHOW_FPS)
     # add_definitions(-DDEBUGMODE)
     # add_definitions(-DDEBUGCOLOR)
     # add_definitions(-DDEBUGNUM)
-
-    # add_definitions(-DVIRTUALGRAB)
+    add_definitions(-DVIRTUALGRAB)  # 打开虚拟取流 即用视频跑
     # add_definitions(-DUSETRIGGERMODE)
-   # add_definitions(-DNOPORT)
+   add_definitions(-DNOPORT)    
     
     # add_definitions(-DTHREADANALYSIS)
     # 使用UI动态调参
@@ -38,7 +36,7 @@
         camera/include
         params/include
         serialPort/include
-        windmill/include
+        # windmill/include
         ${CERES_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
         ${OpenVINO_INCLUDE_DIRS}
@@ -52,14 +50,14 @@
     add_subdirectory(camera)
     add_subdirectory(params)
     add_subdirectory(serialPort)
-    add_subdirectory(windmill)
+    # add_subdirectory(windmill)
     add_subdirectory(armor)
     add_executable(infantry_new main.cpp)
     target_link_libraries(infantry_new
         params
         camera
         serialPort
-        windmill
+        # windmill
         armor
         ${CERES_LIBRARIES}
         ${InferenceEngine_LIBRARIES}

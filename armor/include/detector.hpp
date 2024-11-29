@@ -15,6 +15,7 @@
 
 #include "armor.hpp"
 #include "number_classifier.hpp"
+#include "globalParam.hpp"
 
 namespace rm_auto_aim
 {
@@ -42,9 +43,9 @@ namespace rm_auto_aim
             double max_angle;
         };
 
-        Detector(const int bin_thres, const int color, const LightParams l, const ArmorParams a);
+        Detector(GlobalParam &gp);
 
-        std::vector<Armor> detect(const cv::Mat &input);
+        std::vector<Armor> detect(const cv::Mat &input, const int color);
 
         cv::Mat preprocessImage(const cv::Mat &input);
         std::vector<Light> findLights(const cv::Mat &rbg_img, const cv::Mat &binary_img);
@@ -54,11 +55,12 @@ namespace rm_auto_aim
         cv::Mat getAllNumbersImage();
         void drawResults(cv::Mat &img);
 
+        // parameters
+        int blue_threshold, red_threshold;
         int binary_thres;
         int detect_color;
         LightParams l;
         ArmorParams a;
-
         std::unique_ptr<NumberClassifier> classifier;
 
         // Debug msgs

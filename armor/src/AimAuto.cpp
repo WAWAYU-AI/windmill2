@@ -28,132 +28,128 @@
 #define V_ZOOM 1.0
 #define VYAW_ZOOM 1.0
 
-int binary_threshold = 0;
-
-AimAuto::AimAuto(GlobalParam *gp) : dt(1e-3f), level_count{0, 0, 0}, restart_time(0.0), ArmorSpeed_array(), isBigArmor(), translational_speed_level(0), rotate_speed_level(0), last_world_state(1e-3, 1e-3, 1e-3), current_world_state(1e-3, 1e-3, 1e-3), src_size(1440, 1080), closest2Armors(), config0(), config1(), time_add(0)
+AimAuto::AimAuto(GlobalParam *gp) : dt(1e-3f), level_count{0, 0, 0}, restart_time(0.0), ArmorSpeed_array(), isBigArmor()
 {
-    // 初始化一个白色的1000x1000图像矩阵
-    empty = cv::Mat(1000, 1000, CV_8UC3, cv::Scalar(255, 255, 255));
-
-    // 从参数中获取二值化阈值并输出
-    binary_threshold = gp->binary_thres;
-    std::cout << binary_threshold << std::endl;
-
-    // 初始化检测器
-    det = initDetector(gp->color);
-
-    // 动态分配内存用于z_list
-    z_list = new double[this->z_len + 1];
-
-    // 获取参数配置
-    this->getParam();
-
-    // 初始化两个追踪器
-    tracker_0 = new Tracker(config0.max_match_distance, config0.max_match_yaw_diff);
-    tracker_1 = new Tracker(config1.max_match_distance, config1.max_match_yaw_diff);
-
-    // 定义状态转移函数
-    auto f = [this](const Eigen::VectorXd &x)
-    {
-        // 更新状态：位置和速度
-        Eigen::VectorXd x_new = x;
-        x_new(0) += x(1) * dt; // 更新xc
-        x_new(2) += x(3) * dt; // 更新yc
-        x_new(4) += x(5) * dt; // 更新za
-        x_new(6) += x(7) * dt; // 更新yaw
-        return x_new;
-    };
-
-    // 状态转移函数的雅可比矩阵
-    auto j_f = [this](const Eigen::VectorXd &)
-    {
-        Eigen::MatrixXd f(9, 9);
-        // clang-format off
-        f <<  1,   dt,  0,   0,   0,   0,   0,   0,   0,
-              0,   1,   0,   0,   0,   0,   0,   0,   0,
-              0,   0,   1,   dt,  0,   0,   0,   0,   0, 
-              0,   0,   0,   1,   0,   0,   0,   0,   0,
-              0,   0,   0,   0,   1,   dt,  0,   0,   0,
-              0,   0,   0,   0,   0,   1,   0,   0,   0,
-              0,   0,   0,   0,   0,   0,   1,   dt,  0,
-              0,   0,   0,   0,   0,   0,   0,   1,   0,
-              0,   0,   0,   0,   0,   0,   0,   0,   1;
-        // clang-format on
-        return f;
-    };
-
-    // 观测函数
-    auto h = [](const Eigen::VectorXd &x)
-    {
-        Eigen::VectorXd z(4);
-        double xc = x(0), yc = x(2), yaw = x(6), r = x(8);
-        z(0) = xc - r * cos(yaw); // xa - 计算观测位置xa
-        z(1) = yc - r * sin(yaw); // ya - 计算观测位置ya
-        z(2) = x(4);              // za - 观测z坐标
-        z(3) = x(6);              // yaw - 观测yaw角
-        return z;
-    };
-
-    // 观测函数的雅可比矩阵
-    auto j_h = [](const Eigen::VectorXd &x)
-    {
-        Eigen::MatrixXd h(4, 9);
-        double yaw = x(6), r = x(8);
-        // clang-format off
-        //    xc   v_xc yc   v_yc za   v_za yaw         v_yaw r
-        h <<  1,   0,   0,   0,   0,   0,   r*sin(yaw), 0,   -cos(yaw),
-              0,   0,   1,   0,   0,   0,   -r*cos(yaw),0,   -sin(yaw),
-              0,   0,   0,   0,   1,   0,   0,          0,   0,
-              0,   0,   0,   0,   0,   0,   1,          0,   0;
-        // clang-format on
-        return h;
-    };
-
-    // 过程噪声协方差矩阵 u_q_0
-    auto u_q_0 = [this]()
-    {
-        Eigen::MatrixXd q(9, 9);
-        double t{dt}, x{config0.s2qxyz_}, y{config0.s2qyaw_}, r{config0.s2qr_};
-        // 计算各种噪声参数
-        double q_x_x{pow(t, 4) / 4 * x}, q_x_vx{pow(t, 3) / 2 * x}, q_vx_vx{pow(t, 2) * x};
-        double q_y_y{pow(t, 4) / 4 * y}, q_y_vy{pow(t, 3) / 2 * y}, q_vy_vy{pow(t, 2) * y};
-        double q_r{pow(t, 4) / 4 * r};
-        // clang-format off
-        q <<  q_x_x,  q_x_vx, 0,      0,      0,      0,      0,      0,      0,
-              q_x_vx, q_vx_vx,0,      0,      0,      0,      0,      0,      0,
-              0,      0,      q_x_x,  q_x_vx, 0,      0,      0,      0,      0,
-              0,      0,      q_x_vx, q_vx_vx,0,      0,      0,      0,      0,
-              0,      0,      0,      0,      q_x_x,  q_x_vx, 0,      0,      0,
-              0,      0,      0,      0,      q_x_vx, q_vx_vx,0,      0,      0,
-              0,      0,      0,      0,      0,      0,      q_y_y,  q_y_vy, 0,
-              0,      0,      0,      0,      0,      0,      q_y_vy, q_vy_vy,0,
-              0,      0,      0,      0,      0,      0,      0,      0,      q_r;
-        // clang-format on
-        return q;
-    };
-
-    // 观测噪声协方差矩阵 u_r_0
-    auto u_r_0 = [this](const Eigen::VectorXd &z)
-    {
-        Eigen::DiagonalMatrix<double, 4> r;
-        double x = config0.r_xyz_factor;
-        r.diagonal() << abs(x * z[0]), abs(x * z[1]), abs(1e-7), config0.r_yaw; // 定义观测噪声
-        return r;
-    };
+    // // 初始化一个白色的1000x1000图像矩阵
+    // empty = cv::Mat(1000, 1000, CV_8UC3, cv::Scalar(255, 255, 255));
 
 
-    // 初始化误差估计协方差矩阵P
-    Eigen::DiagonalMatrix<double, 9> p0;
-    p0.setIdentity(); // P0矩阵单位化
+    // // 初始化检测器
+    // det = initDetector(gp->color);
 
-    // 创建扩展卡尔曼滤波器的实例
-    tracker_0->ekf = ExtendedKalmanFilter{f, h, j_f, j_h, u_q_0, u_r_0, p0};
+    // // 动态分配内存用于z_list
+    // z_list = new double[this->z_len + 1];
 
-    // 设置追踪器的阈值
-    tracker_0->tracking_thres = tracker_1->tracking_thres = 10;
-    tracker_0->lost_thres = tracker_1->lost_thres = 10;
+    // // 获取参数配置
+    // this->getParam();
+
+    // // 初始化两个追踪器
+    // tracker_0 = new Tracker(config0.max_match_distance, config0.max_match_yaw_diff);
+    // tracker_1 = new Tracker(config1.max_match_distance, config1.max_match_yaw_diff);
+
+    // // 定义状态转移函数
+    // auto f = [this](const Eigen::VectorXd &x)
+    // {
+    //     // 更新状态：位置和速度
+    //     Eigen::VectorXd x_new = x;
+    //     x_new(0) += x(1) * dt; // 更新xc
+    //     x_new(2) += x(3) * dt; // 更新yc
+    //     x_new(4) += x(5) * dt; // 更新za
+    //     x_new(6) += x(7) * dt; // 更新yaw
+    //     return x_new;
+    // };
+
+    // // 状态转移函数的雅可比矩阵
+    // auto j_f = [this](const Eigen::VectorXd &)
+    // {
+    //     Eigen::MatrixXd f(9, 9);
+    //     // clang-format off
+    //     f <<  1,   dt,  0,   0,   0,   0,   0,   0,   0,
+    //           0,   1,   0,   0,   0,   0,   0,   0,   0,
+    //           0,   0,   1,   dt,  0,   0,   0,   0,   0, 
+    //           0,   0,   0,   1,   0,   0,   0,   0,   0,
+    //           0,   0,   0,   0,   1,   dt,  0,   0,   0,
+    //           0,   0,   0,   0,   0,   1,   0,   0,   0,
+    //           0,   0,   0,   0,   0,   0,   1,   dt,  0,
+    //           0,   0,   0,   0,   0,   0,   0,   1,   0,
+    //           0,   0,   0,   0,   0,   0,   0,   0,   1;
+    //     // clang-format on
+    //     return f;
+    // };
+
+    // // 观测函数
+    // auto h = [](const Eigen::VectorXd &x)
+    // {
+    //     Eigen::VectorXd z(4);
+    //     double xc = x(0), yc = x(2), yaw = x(6), r = x(8);
+    //     z(0) = xc - r * cos(yaw); // xa - 计算观测位置xa
+    //     z(1) = yc - r * sin(yaw); // ya - 计算观测位置ya
+    //     z(2) = x(4);              // za - 观测z坐标
+    //     z(3) = x(6);              // yaw - 观测yaw角
+    //     return z;
+    // };
+
+    // // 观测函数的雅可比矩阵
+    // auto j_h = [](const Eigen::VectorXd &x)
+    // {
+    //     Eigen::MatrixXd h(4, 9);
+    //     double yaw = x(6), r = x(8);
+    //     // clang-format off
+    //     //    xc   v_xc yc   v_yc za   v_za yaw         v_yaw r
+    //     h <<  1,   0,   0,   0,   0,   0,   r*sin(yaw), 0,   -cos(yaw),
+    //           0,   0,   1,   0,   0,   0,   -r*cos(yaw),0,   -sin(yaw),
+    //           0,   0,   0,   0,   1,   0,   0,          0,   0,
+    //           0,   0,   0,   0,   0,   0,   1,          0,   0;
+    //     // clang-format on
+    //     return h;
+    // };
+
+    // // 过程噪声协方差矩阵 u_q_0
+    // auto u_q_0 = [this]()
+    // {
+    //     Eigen::MatrixXd q(9, 9);
+    //     double t{dt}, x{config0.s2qxyz_}, y{config0.s2qyaw_}, r{config0.s2qr_};
+    //     // 计算各种噪声参数
+    //     double q_x_x{pow(t, 4) / 4 * x}, q_x_vx{pow(t, 3) / 2 * x}, q_vx_vx{pow(t, 2) * x};
+    //     double q_y_y{pow(t, 4) / 4 * y}, q_y_vy{pow(t, 3) / 2 * y}, q_vy_vy{pow(t, 2) * y};
+    //     double q_r{pow(t, 4) / 4 * r};
+    //     // clang-format off
+    //     q <<  q_x_x,  q_x_vx, 0,      0,      0,      0,      0,      0,      0,
+    //           q_x_vx, q_vx_vx,0,      0,      0,      0,      0,      0,      0,
+    //           0,      0,      q_x_x,  q_x_vx, 0,      0,      0,      0,      0,
+    //           0,      0,      q_x_vx, q_vx_vx,0,      0,      0,      0,      0,
+    //           0,      0,      0,      0,      q_x_x,  q_x_vx, 0,      0,      0,
+    //           0,      0,      0,      0,      q_x_vx, q_vx_vx,0,      0,      0,
+    //           0,      0,      0,      0,      0,      0,      q_y_y,  q_y_vy, 0,
+    //           0,      0,      0,      0,      0,      0,      q_y_vy, q_vy_vy,0,
+    //           0,      0,      0,      0,      0,      0,      0,      0,      q_r;
+    //     // clang-format on
+    //     return q;
+    // };
+
+    // // 观测噪声协方差矩阵 u_r_0
+    // auto u_r_0 = [this](const Eigen::VectorXd &z)
+    // {
+    //     Eigen::DiagonalMatrix<double, 4> r;
+    //     double x = config0.r_xyz_factor;
+    //     r.diagonal() << abs(x * z[0]), abs(x * z[1]), abs(1e-7), config0.r_yaw; // 定义观测噪声
+    //     return r;
+    // };
+
+
+    // // 初始化误差估计协方差矩阵P
+    // Eigen::DiagonalMatrix<double, 9> p0;
+    // p0.setIdentity(); // P0矩阵单位化
+
+    // // 创建扩展卡尔曼滤波器的实例
+    // tracker_0->ekf = ExtendedKalmanFilter{f, h, j_f, j_h, u_q_0, u_r_0, p0};
+
+    // // 设置追踪器的阈值
+    // tracker_0->tracking_thres = tracker_1->tracking_thres = 10;
+    // tracker_0->lost_thres = tracker_1->lost_thres = 10;
 
     // 保存全局参数及其他初始化
+    det = new rm_auto_aim::Detector(*gp); // 初始化检测器
     this->gp = gp;
     this->tar_list.clear(); // 清空目标列表
     this->last_time_ = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -161,47 +157,32 @@ AimAuto::AimAuto(GlobalParam *gp) : dt(1e-3f), level_count{0, 0, 0}, restart_tim
     this->_K_.resize(3, 3);
     this->_K_ << (float)gp->fx, 0, (float)gp->cx, 0, (float)gp->fy, (float)gp->cy, 0, 0, 1; // 设置相机矩阵
 }
-
 AimAuto::~AimAuto()
 {
     free(this->z_list);
 }
-void AimAuto::getParam()
-{
-    cv::FileStorage fs;
-    std::string path = std::filesystem::current_path();
-    path = path + "/AimautoConfig.yaml";
-    // std::cout << path;
-    fs.open(path, cv::FileStorage::READ);
-
-    fs["max_match_distance"] >> config0.max_match_distance;
-    fs["max_match_yaw_diff"] >> config0.max_match_yaw_diff;
-    fs["s2qxyz"] >> config0.s2qxyz_;
-    fs["s2qyaw"] >> config0.s2qyaw_;
-    fs["s2qr"] >> config0.s2qr_;
-    fs["r_xyz_factor"] >> config0.r_xyz_factor;
-    fs["r_yaw"] >> config0.r_yaw;
-
-
-    fs["react_time_0"] >> react_time_[0];
-    fs["react_time_1"] >> react_time_[1];
-    fs["react_time_2_8rad"] >> react_time_[2];
-    fs["react_time_2_10rad"] >> react_time_[3];
-}
+// void AimAuto::getParam()
+// {
+//     cv::FileStorage fs;
+//     std::string path = std::filesystem::current_path();
+//     path = path + "/config/AimautoConfig.yaml";
+//     fs.open(path, cv::FileStorage::READ);
+//     fs["max_match_distance"] >> config0.max_match_distance;
+//     fs["max_match_yaw_diff"] >> config0.max_match_yaw_diff;
+//     fs["s2qxyz"] >> config0.s2qxyz_;
+//     fs["s2qyaw"] >> config0.s2qyaw_;
+//     fs["s2qr"] >> config0.s2qr_;
+//     fs["r_xyz_factor"] >> config0.r_xyz_factor;
+//     fs["r_yaw"] >> config0.r_yaw;
+// }
 void AimAuto::AimAutoYHY(cv::Mat &src, Translator &ts)
 {
     // ts.message.status = 2;
     this->is_hitting_outpose = ts.message.status % 5 == 2;
-    if (det->detect_color != gp->color)
-    {
-        det = initDetector(gp->color);
-    }
-    this->time = (double)ts.message.predict_time;
     this->tar_list.clear();
-    auto armors = det->detect(src);
+    auto armors = det->detect(src, gp->color);
     std::sort(armors.begin(), armors.end(), [&](const rm_auto_aim::Armor &la, const rm_auto_aim::Armor &lb)
               { return abs((double)src.cols / 2 - ((la.left_light.top + la.right_light.top + la.left_light.bottom + la.right_light.bottom) / 4).x) < abs((double)src.cols / 2 - ((lb.left_light.top + lb.right_light.top + lb.left_light.bottom + lb.right_light.bottom) / 4).x); });
-    // std::cout << "armors.size():" << armors.size() << std::endl;
     for (auto armor : armors)
     {
         if (this->first_see)
@@ -247,18 +228,6 @@ void AimAuto::AimAutoYHY(cv::Mat &src, Translator &ts)
         ts.message.y_a = 0;
         ts.message.z_a = 0;
     }
-    if (last_ts.message.armor_flag == 11)
-    {
-        if (this->rotate_speed_level == 0)
-        {
-            this->shootKeeper = 3;
-        }
-        else if (this->is_hitting_outpose == 1)
-        {
-            this->shootKeeper = 0;
-        }
-    }
-    this->position_save = tar_list[0].center;
 #ifdef DEBUGMODE
     showDist(tar_list, src);
     // cv::putText(src, std::to_string(shootKeeper), cv::Point(300, 300), 1, 2, cv::Scalar(225, 225, 0), 2);
@@ -321,9 +290,6 @@ void AimAuto::pnp_solve(rm_auto_aim::Armor &armor, Translator &ts, cv::Mat &src,
 
     //=================坐标系转换================//
     tar.center = cv::Point3f(tVec.at<double>(0), tVec.at<double>(1), tVec.at<double>(2));
-    // cv::Point p = cv::Point(tar.center.x + 500, (tar.center.z - 3100));
-    // cv::circle(empty, p, 2, cv::Scalar(0, 255, 0), -1);
-    // cv::imshow("e", empty);
     cv::Mat rotation_matrix;
     double theta = rVec.at<double>(2);
     cv::Rodrigues(rVec, rotation_matrix);
@@ -376,7 +342,7 @@ void AimAuto::pnp_solve(rm_auto_aim::Armor &armor, Translator &ts, cv::Mat &src,
     tar.yaw -= ts.message.yaw;
     tar.yaw *= -1;
     tar.position = m_yaw * m_pitch * temp;
-    this->position_save = tar.center;
+    // this->position_save = tar.center;
     // position is the world axis
     //=========================================//
 }
@@ -416,7 +382,7 @@ void AimAuto::NewTracker(Translator &ts, cv::Mat &src)
     // this->convertPoint(ts, p_, 1, src);
 #ifndef DEBUGMODE
     printf("x:%.3lf|y:%.3lf|z:%.3lf\n", ts.message.x_a, ts.message.y_a, ts.message.z_a);
-    printf("R:%.3lf|vyaw:%.3lf|Num:%d\n", this->r * (this->isClockwise > 0 ? 1.05 : 0.95), rawOmega, tracking_numb);
+    // printf("R:%.3lf|vyaw:%.3lf|Num:%d\n", this->r * (this->isClockwise > 0 ? 1.05 : 0.95), rawOmega, tracking_numb);
     printf("yaw:%.4f|pitch:%.4f|flag:%d\n", ts.message.yaw, ts.message.pitch, ts.message.armor_flag);
     printf("bcO:%.3lf|bcV:%.3lf\n", ts.message.vz_c, ts.message.vy_c);
 #endif
@@ -442,135 +408,6 @@ void AimAuto::NewTracker(Translator &ts, cv::Mat &src)
     this->isBigArmor.clear();
 
 #endif // SENDCAMERA
-}
-
-std::unique_ptr<rm_auto_aim::Detector> initDetector(int color)
-{
-    address addr;
-    // int binary_thres = binary_threshold;
-    int detect_color = color;
-    double min_ratio,
-        max_ratio,
-        max_angle_l,
-        min_light_ratio,
-        min_small_center_distance,
-        max_small_center_distance,
-        min_large_center_distance,
-        max_large_center_distance,
-        max_angle_a,
-        threshold;
-    cv::FileStorage fs;
-    fs.open(addr.yaml_address + "detect.yaml", cv::FileStorage::READ);
-    fs["min_ratio"] >> min_ratio;
-    fs["max_ratio"] >> max_ratio;
-    fs["max_angle_l"] >> max_angle_l;
-    fs["min_light_ratio"] >> min_light_ratio;
-    fs["min_small_center_distance"] >> min_small_center_distance;
-    fs["max_small_center_distance"] >> max_small_center_distance;
-    fs["min_large_center_distance"] >> min_large_center_distance;
-    fs["max_large_center_distance"] >> max_large_center_distance;
-    fs["max_angle_a"] >> max_angle_a;
-    fs["threshold"] >> threshold;
-    rm_auto_aim::Detector::LightParams l_params = {
-        .min_ratio = min_ratio,
-        .max_ratio = max_ratio,
-        .max_angle = max_angle_l};
-
-    rm_auto_aim::Detector::ArmorParams a_params = {
-        .min_light_ratio = 0.7,
-        .min_small_center_distance = min_small_center_distance,
-        .max_small_center_distance = max_small_center_distance,
-        .min_large_center_distance = min_large_center_distance,
-        .max_large_center_distance = max_large_center_distance,
-        .max_angle = max_angle_a};
-
-    auto detector = std::make_unique<rm_auto_aim::Detector>(binary_threshold, detect_color, l_params, a_params);
-
-    // Init classifier
-    const std::string root_path = std::filesystem::current_path();
-    auto model_path = root_path + "/model/mlp.onnx";
-    auto label_path = root_path + "/model/label.txt";
-    std::vector<std::string> ignore_classes =
-        std::vector<std::string>{"negative"};
-    detector->classifier =
-        std::make_unique<rm_auto_aim::NumberClassifier>(model_path, label_path, threshold, ignore_classes);
-
-    return detector;
-}
-
-void AimAuto::storeMessage(cv::Point3f target, Translator &ts)
-{
-    ts.message.x_a = target.x * 1000;
-    ts.message.y_a = target.y * 1000;
-    ts.message.z_a = target.z * 1000;
-    // ts.message.x_c = tracker_1->target_state(0) * 1000;
-    // ts.message.y_c = tracker_1->target_state(2) * 1000;
-    // ts.message.z_c = tracker_1->target_state(4) * 1000;
-    ts.message.x_c = tracker_0->target_state(0) * 1000;
-    ts.message.y_c = tracker_0->target_state(2) * 1000;
-    ts.message.z_c = tracker_0->target_state(4) * 1000;
-    ts.message.yaw_a = tracker_0->target_state(6);
-    // ts.message.vx_c = tracker_1->target_state(1) * 1000;
-    // ts.message.vy_c = tracker_1->target_state(3) * 1000;
-    // ts.message.vz_c = tracker_1->target_state(8) * 1000;
-    ts.message.vx_c = tracker_0->target_state(1) * 1000;
-    ts.message.vy_c = tracker_0->target_state(3) * 1000;
-    ts.message.vz_c = tracker_0->target_state(8) * 1000;
-    ts.message.vyaw_a = tracker_0->target_state(7);
-    // ts.message.armor_flag = tracker->tracked_armor.type;
-    ts.message.yaw = this->raw_yaw;
-}
-
-void AimAuto::convertPoint(Translator &ts, cv::Point3f target, bool ycr, cv::Mat &src)
-{
-    if (!this->is_hitting_outpose)
-    {
-        Eigen::MatrixXd m_pitch(3, 3);
-        Eigen::MatrixXd m_yaw(3, 3);
-        auto real_yaw = ts.message.yaw + gp->camera2shootBias;
-        m_yaw << cos(real_yaw), -sin(real_yaw), 0, sin(real_yaw), cos(real_yaw), 0, 0, 0, 1;
-        m_pitch << cos(ts.message.pitch), 0, sin(ts.message.pitch), 0, 1, 0, -sin(ts.message.pitch), 0, cos(ts.message.pitch);
-        Eigen::Vector3d temp;
-        temp = Eigen::Vector3d(target.x, target.y, target.z);
-        Eigen::Vector3d position = m_pitch.inverse() * m_yaw.inverse() * temp;
-        ts.message.x_a = -position(1) * 1000;
-        ts.message.y_a = -(position(2) * 1000);
-        ts.message.z_a = position(0) * 1000;
-        ts.message.vyaw_a *= -1;
-        ts.message.yaw_a *= -1;
-        
-#ifdef DEBUGMODE
-
-            cv::putText(src, "YCR", cv::Point(500, 250), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 125, 220), 2);
-#endif
-
-    }
-    else
-    {
-        ts.message.x_a = position_save.x;
-        ts.message.y_a = position_save.y;
-        ts.message.z_a = position_save.z;
-        this->rawYawArray.push_back(tar_list[0].yaw > last_yaw);
-        if (this->rawYawArray.size() > 50)
-            this->rawYawArray.pop_front();
-        double aqq = std::accumulate(rawYawArray.begin(), rawYawArray.end(), 0.0);
-        this->isClockwise = aqq > 12.0 ? 1 : -1;
-        printf("aqq:%f\n", aqq);
-        double pzx = 0;
-        if (this->isClockwise > 0)
-        {
-            pzx = abs(ts.message.z_a) / 30000 * 500;
-        }
-        else if (abs(this->isClockwise) < 1e-5)
-        {
-            pzx = abs(ts.message.z_a) / 30000 * 0;
-        }
-        else
-        {
-            pzx = abs(ts.message.z_a) / 30000 * -500;
-        }
-        ts.message.x_a += pzx;
-    }
 }
 
 bool AimAuto::updateTracker(Translator &ts, cv::Mat &src)
