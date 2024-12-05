@@ -74,10 +74,10 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
         if(all_matched) break;
     }
     for(int i = 0; i < n; i++){
-        int EkfID   = matchX[i]/4;
-        int ArmorID = matchX[i]%4;
+        int ekf_id  = matchX[i]/4;
+        int armor_id= matchX[i]%4;
         auto &armor = armors_curr[i];
-        z_vector_list[EkfID].segment(ArmorID*4, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
+        z_vector_list[ekf_id].segment(armor_id*4, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
     }
     for (int i = 0; i < ekf_list.size(); i++){
         if (z_vector_list[i].norm() == 0){
@@ -94,7 +94,21 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
         ekf_list[i].update(z_vector_list[i]);
     }
     if (ekf_list.size() > 0){
-        // ts = ekf_list[0].get_X();
+        auto x = ekf_list[0].get_X();
+        ts.message.x_c = x(0);
+        ts.message.v_x = x(1);
+        ts.message.y_c = x(2);
+        ts.message.v_y = x(3);
+        ts.message.z1 = x(4);
+        ts.message.z2 = x(5);
+        ts.message.v_z = x(6);
+        ts.message.r1 = x(7);
+        ts.message.r2 = x(8);
+        ts.message.yaw_a = x(9);
+        ts.message.vyaw = x(10);
+        ts.message.crc = 1;
+    }else{
+        ts.message.crc = 0;
     }
 }
 
@@ -102,31 +116,32 @@ void Tracker::refine_zVector(int ekf_id){
     auto x = ekf_list[ekf_id].get_X();
     double xc = x(0), yc = x(2), z1 = x(4), z2 = x(5), r1 = x(7), r2 = x(8);
     auto &z = z_vector_list[ekf_id];
+    Armor armor;
     // 看不见的装甲板的位姿由能看见的装甲板估计
     if (z.segment(0, 4) != Eigen::VectorXd::Zero(4)){
-        auto armor = calcArmor(xc, yc, z(2), r1, z(3) + M_PI);
+        armor = calcArmor(xc, yc, z(2), r1, z(3) + M_PI);
         z.segment(8, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
     }else if (z.segment(8, 4) != Eigen::VectorXd::Zero(4)){
-        auto armor = calcArmor(xc, yc, z(10), r1, z(11) - M_PI);
+        armor = calcArmor(xc, yc, z(10), r1, z(11) - M_PI);
         z.segment(0, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
     }
     if (z.segment(4, 4) != Eigen::VectorXd::Zero(4)){
-        auto armor = calcArmor(xc, yc, z(6), r2, z(7) + M_PI);
+        armor = calcArmor(xc, yc, z(6), r2, z(7) + M_PI);
         z.segment(12, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
     }else if (z.segment(12, 4) != Eigen::VectorXd::Zero(4)){
-        auto armor = calcArmor(xc, yc, z(14), r2, z(15) - M_PI);
+        armor = calcArmor(xc, yc, z(14), r2, z(15) - M_PI);
         z.segment(4, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
     }
     if (z.segment(0, 4) == Eigen::VectorXd::Zero(4) && z.segment(8, 4) == Eigen::VectorXd::Zero(4)){
-        auto armor = calcArmor(xc, yc, z1, r1, z(7) - M_PI/2);
+        armor = calcArmor(xc, yc, z1, r1, z(7) - M_PI/2);
         z.segment(0, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
-        auto armor = calcArmor(xc, yc, z1, r1, z(7) + M_PI/2);
+        armor = calcArmor(xc, yc, z1, r1, z(7) + M_PI/2);
         z.segment(8, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
     }
     if (z.segment(4, 4) == Eigen::VectorXd::Zero(4) && z.segment(12, 4) == Eigen::VectorXd::Zero(4)){
-        auto armor = calcArmor(xc, yc, z2, r2, z(3) + M_PI/2);
+        armor = calcArmor(xc, yc, z2, r2, z(3) + M_PI/2);
         z.segment(4, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
-        auto armor = calcArmor(xc, yc, z2, r2, z(3) - M_PI/2);
+        armor = calcArmor(xc, yc, z2, r2, z(3) - M_PI/2);
         z.segment(12, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
     }
 }

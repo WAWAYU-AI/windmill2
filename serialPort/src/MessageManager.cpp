@@ -72,7 +72,7 @@ MessageManager::~MessageManager()
 }
 void MessageManager::HoldMessage(Translator &ts)
 {
-    if (ts.message.x_a == 0 && ts.message.y_a == 0 && ts.message.z_a == 0)
+    if (ts.message.latency == 0)
     {
         if (loss_cnt < message_hold_threshold)
         {
@@ -92,13 +92,11 @@ void MessageManager::FakeMessage(Translator &ts)
 {
     ts.message.pitch = gp->fake_pitch;
     ts.message.yaw = fmod(gp->fake_yaw, 2 * M_PI);
-    ts.message.bullet_v = gp->fake_bullet_v;
     ts.message.status = gp->fake_status;
     if (gp->attack_mode == ARMOR)
         this->now_time += 50;
     else if (gp->attack_mode == ENERGY)
         this->now_time += 50;
-    ts.message.predict_time = this->now_time;
     MessageManager::UpdateCrc(ts, 61);
     return;
 }
@@ -177,7 +175,6 @@ void MessageManager::copy(Translator &src, Translator &dst)
 {
     this->message_lock.lock();
     dst = src;
-    this->n_time = dst.message.predict_time;
     this->message_lock.unlock();
 }
 void MessageManager::initParam(int color)
@@ -192,9 +189,6 @@ void MessageManager::initParam(int color)
 }
 void MessageManager::getFrame(cv::Mat &pic, Translator translator)
 {
-    // 如果是虚拟取流，从视频中拿一帧图片
-    static float last_time = (float)translator.message.predict_time / 1000;
-    float now_time = (float)translator.message.predict_time / 1000;
     capture >> pic;
     // 当前帧数自加，用于记录当前的帧数，用于判断是否视频被播放完毕
     currentFrames++;
@@ -206,7 +200,6 @@ void MessageManager::getFrame(cv::Mat &pic, Translator translator)
         currentFrames = 0;
         capture.set(cv::CAP_PROP_POS_FRAMES, 0);
     }
-    last_time = now_time;
 }
 void MessageManager::recordFrame(cv::Mat &pic)
 {
@@ -244,7 +237,5 @@ void MessageManager::LogMessage(Translator &ts,GlobalParam &gp)
     LOG_IF(INFO, gp.switch_INFO) << "read successful";
     LOG_IF(INFO, gp.switch_INFO) << "当前pitch: " << ts.message.pitch;
     LOG_IF(INFO, gp.switch_INFO) << "当前yaw: " << ts.message.yaw;
-    LOG_IF(INFO, gp.switch_INFO) << "当前弾速: " << ts.message.bullet_v;
     LOG_IF(INFO, gp.switch_INFO) << "当前状态: " << +ts.message.status;
-    LOG_IF(INFO, gp.switch_INFO) << "当前时间戳: " << ts.message.predict_time;
 }

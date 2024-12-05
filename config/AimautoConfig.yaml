@@ -9,8 +9,9 @@ s2qyaw: 90.0            # 角度转移噪声
 s2qr: 250.0             # 半径转移噪声
 r_xy_factor: 0.032
 r_z: 0.0000001
-r_yaw: 0.016            
-
+r_yaw: 0.016
+s2q0 : 1000
+r_initial: 450
 
 # model2
 

@@ -50,6 +50,8 @@ void GlobalParam::initGlobalParam(const int color)
     fs["r_xy_factor"] >> r_xy_factor;     
     fs["r_z"] >> r_z;     
     fs["r_yaw"] >> r_yaw;
+    fs["s2p0"] >> s2p0;
+    fs["r_initial"] >> r_initial;
     fs.release();
 
     // 打开DetectionConfig配置文件
@@ -113,6 +115,8 @@ void GlobalParam::saveGlobalParam()
     fs << "r_xy_factor" << r_xy_factor;     
     fs << "r_z" << r_z;    
     fs << "r_yaw" << r_yaw;    
+    fs << "s2p0" << s2p0;
+    fs << "r_initial" << r_initial;
     fs.release();              
 
     // 打开DetectionConfig配置文件以写入参数

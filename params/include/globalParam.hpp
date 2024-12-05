@@ -25,20 +25,19 @@ typedef struct
     float yaw;             // 当前车云台的yaw角，单位为弧度制
     float pitch;           // 当前车云台的pitch角，单位为弧度制
     uint8_t status;        // 状态位，/5==0自己为红色，/5==0自己为蓝色，%5==0为自瞄，%5==1为小符，%5==3为大符
-    uint16_t bullet_v;     // 上一次发射的弹速，单位为米每秒
-    uint8_t armor_flag;    // 敌方3-5号车是否为大装甲板(即平衡车)，为二进制转十进制，如345全为平衡，为111，输入7，只有3为平衡，为100，输入4
-    uint32_t predict_time; 
-    float x_a;             // 装甲板在世界坐标系(云台pitch、yaw为0时的相机坐标系)下的x坐标
-    float y_a;             // 装甲板在世界坐标系下的y坐标
-    float z_a;             // 装甲板在世界坐标系下的z坐标
-    float x_c;             // 车中心点在世界坐标系下的x坐标
-    float y_c;             // 车中心点在世界坐标系下的y坐标
-    float z_c;             // 车中心点在世界坐标系下的z坐标
-    float yaw_a;           // 装甲板与车中心点连线与世界坐标系x轴夹角，装甲板正对时为0，车顺时针旋转为负，反之为正，范围大约在-pi/2至pi/2，
-    float vx_c;            // 车中心点在世界坐标系下的x速度
-    float vy_c;            // 车中心点在世界坐标系下的y速度
-    float vz_c;            // 车中心点在世界坐标系下的z速度
-    float vyaw_a;          // 如上定义的角，车旋转的角速度
+    uint8_t armor_flag;    // 
+    float latency;         // 延迟，单位为毫秒
+    float x_c;             // 目标中心点x坐标，单位为毫米
+    float v_x;             // 目标速度x分量，单位为毫米每秒
+    float y_c;             // 目标中心点y坐标，单位为毫米
+    float v_y;             // 目标速度y分量，单位为毫米每秒
+    float z1;              // 目标高度，单位为毫米
+    float z2;              // 目标高度，单位为毫米
+    float v_z;             // 目标速度z分量，单位为毫米每秒
+    float r1;              // 目标第一个半径，单位为毫米
+    float r2;              // 目标第二个半径，单位为毫米
+    float yaw_a;           // 目标姿态yaw角，单位为弧度制
+    float vyaw;            // 目标姿态yaw角速度，单位为弧度每秒
     uint16_t crc;
     uint8_t tail; // 0x4C
 
@@ -263,6 +262,8 @@ struct GlobalParam
     double r_xy_factor = 0.032;  
     double r_z = 1e-7; 
     double r_yaw = 0.016;  
+    double s2p0 = 1000;
+    double r_initial = 450;
 
     //===新加的===//
     // int realy_mid = 720;

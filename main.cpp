@@ -19,25 +19,46 @@
 #include <unistd.h>
 #define RESIZE 0.5
 
-GlobalParam gp;
-// 全局变量
 // 全局变量参数，这个参数存储着全部的需要的参数
-MessageManager MManager(gp);
+GlobalParam gp;
 // 全局地址参数，这个参数存储着全部的需要的地址
 address addr;
+
+// 通信类
+MessageManager MManager(gp);
+// 相机类
+Camera camera(gp);
+
 // 全局图片，负责将图片从取流的读取线程读取到运算线程
-cv::Mat pic;
+// cv::Mat pic;
+
 // 读信息，是从电控接受的信息，在读线程被赋值，之后交给运算线程
-Translator translator;
-// 临时信息，为了防止数据的堵塞，使用临时信息反复的读取，在需要真正获取信息的时候将信息传给translator
-Translator temp;
-std::chrono::microseconds last_tick = std::chrono::duration_cast<std::chrono::microseconds>(
-    std::chrono::system_clock::now().time_since_epoch());
-// 声明线程
+// Translator translator;
+
+// 定义双缓冲区
+struct DataBuffer{
+    Translator translator;
+    cv::Mat pic;
+    bool data_ready; // 标志数据是否准备好
+    double time_stamp; // 时间戳
+};
+DataBuffer buffers[2]; // 两个缓冲区
+int current_buffer = 0; // 当前使用的缓冲区
+
+// 定义线程锁和条件变量
+pthread_mutex_t Mutex= PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t Cond = PTHREAD_COND_INITIALIZER;
+
+// 进行完的线程的个数，在等于2的时候重置为0，这里用1是为了先单独运行一遍读线程
+int pthread_count = 1;
+// 定义退出标志位
+bool exit_flag = false;
+
 // 读线程，负责读取串口信息以及取流
 void *ReadFunction(void *arg);
 // 运算线程，负责对图片进行处理，并且完成后续的要求
 void *OperationFunction(void *arg);
+
 int main(int argc, char **argv)
 {
     // 初始化Glog并设置部分标志位
@@ -50,66 +71,122 @@ int main(int argc, char **argv)
     // 设置通信串口对象初始值
     serialPort->InitSerialPort(int(*argv[2] - '0'), 8, 1, 'N');
 #ifndef NOPORT
-    MManager.read(temp, *serialPort);
-#ifdef THREADANALYSIS
-    printf("init status is: %d\n", temp.message.status);
-#endif
+    MManager.read(temp_translator;, *serialPort);
     // 通过电控发来的标志位是0～4还是5～9来确定是红方还是蓝方，其中0～4是红方，5～9是蓝方
-    MManager.initParam(temp.message.status / 5 == 0 ? RED : BLUE);
-
+    MManager.initParam(temp_translator;.message.status / 5 == 0 ? RED : BLUE);
 #else
     // 再没有串口的时候直接设定颜色，这句代码可以根据需要进行更改
     MManager.initParam(BLUE);
-    translator.message.predict_time = 0;
+    // translator.message.predict_time = 0;
 #endif // NOPORT
+
+    // 初始化线程锁和条件变量
+    pthread_mutex_init(&Mutex, NULL);
+    pthread_cond_init(&Cond, NULL);
+
     // 输出日志，开始初始化
     pthread_t readThread;
-    pthread_t optionThread;
+    pthread_t operationThread;
+
     // 开启线程
     pthread_create(&readThread, NULL, ReadFunction, serialPort);
-    pthread_create(&optionThread, NULL, OperationFunction, serialPort);
+    pthread_create(&operationThread, NULL, OperationFunction, serialPort);
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
-    CPU_SET(0, &cpuset); // 将线程绑定到CPU 0
+    CPU_SET(0, &cpuset);
+    // if (pthread_setaffinity_np(operationThread, sizeof(cpu_set_t), &cpuset) != 0) {
+    //     perror("Failed to set affinity for operationThread");
+    //     return 1;
+    // }
 
-    if (pthread_setaffinity_np(optionThread, sizeof(cpu_set_t), &cpuset) != 0) {
-        perror("Failed to set affinity for optionThread");
-        return 1;
-    }
+    // 等待线程结束
+    pthread_join(readThread, NULL);
+    pthread_join(operationThread, NULL);
     
-    // 开启线程成功，输出日志
-    pthread_join(optionThread, NULL);
+    // 销毁线程锁和条件变量
+    pthread_mutex_destroy(&Mutex);
+    pthread_cond_destroy(&Cond);
+    
     return 0;
 }
 
-void *ReadFunction(void *arg)
+void *ReadFunction(void *arg) // 读线程
 {
-#ifdef THREADANALYSIS
-    printf("read function init successful\n");
-#endif
+#ifndef VIRTUALGRAB
+    camera.init();
+#endif 
     // 传入的参数赋给串口，以获得串口数据
     SerialPort *serialPort = (SerialPort *)arg;
     while (1)
     {
-        MManager.read(temp, *serialPort);
-        usleep(100);
+        pthread_mutex_lock(&Mutex);
+        MManager.read(buffers[current_buffer].translator, *serialPort);
+        if (buffers[current_buffer].translator.message.status % 5 != 0)
+        {
+#ifndef VIRTUALGRAB
+            camera.change_attack_mode(ENERGY, gp);
+#endif
+            gp.attack_mode = ENERGY;
+        }
+        else
+        {
+#ifndef VIRTUALGRAB
+            camera.change_attack_mode(ARMOR, gp);
+#endif
+            gp.attack_mode = ARMOR;
+        }
+
+        buffers[current_buffer].time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+
+#ifndef VIRTUALGRAB
+
+#ifdef DEBUGMODE
+        camera.getFrame(buffers[current_buffer].pic);
+#else
+        camera.get_pic(&buffers[current_buffer].pic, gp);
+#endif
+        buffers[current_buffer].data_ready = true;
+
+#else
+        MManager.getFrame(buffers[current_buffer].pic, buffers[current_buffer].translator);
+#endif
+        // 切换缓冲区
+        current_buffer = (current_buffer + 1) % 2;
+        pthread_mutex_unlock(&Mutex);
+        
+        pthread_mutex_lock(&Mutex);
+        pthread_count++;
+        if(pthread_count == 2)
+        {
+            pthread_count = 0;
+            pthread_cond_broadcast(&Cond);
+        }
+        else
+        {
+            pthread_cond_wait(&Cond,&Mutex);
+        }
+        pthread_mutex_unlock(&Mutex);
     }
     return NULL;
 }
 
 void *OperationFunction(void *arg)
 {
-
-#ifdef THREADANALYSIS
-    printf("operation function init successful\n");
-#endif
     SerialPort *serialPort = (SerialPort *)arg;
-    AimAuto aim(&gp);       // 实例化自瞄类
-    UIManager UI;           // 实例化UI类
-#ifndef VIRTUALGRAB
-    Camera camera(gp);      // 假如是现实取流，初始化相机
-    camera.init();
-#endif // VIRTUALGRAB
+    // 实例化能量机关识别类
+    // WMIdentify WMI(gp);
+    // 实例化自瞄类
+    AimAuto aim(&gp);
+    // 实例化UI类
+    UIManager UI;
+    // 重置能量机关识别类
+    // WMI.clear();
+    // // 实例化能量机关预测类
+    // WMIPredict WMIPRE;
+    cv::Mat pic;
+    Translator translator;
+    double dt = 0;
+    double last_time_stamp = 0;
 #ifdef DEBUGMODE
     //=====动态调参使用参数======//
     // 当前按键
@@ -120,125 +197,59 @@ void *OperationFunction(void *arg)
     std::deque<cv::Point3f> points3d;
     // 储存当前时间，用于绘图
     std::deque<double> times;
-#endif
+
+#endif // DEBUGMODE
     //========================//
     uint8_t error_times{0};
-    while (1){
-
+    int processing_buffer = 0; // 当前处理的缓冲区
+    while (1)
+    {
+        pthread_mutex_lock(&Mutex);
 #ifndef NOPORT
-        MManager.copy(temp, translator);
+        translator = buffers[processing_buffer].translator;
 #else
-        MManager.FakeMessage(translator);    // 假如没有串口，使用假数据
+        MManager.FakeMessage(translator);
 #endif // NOPORT
-        if (MManager.CheckCrc(translator, 61))      // crc校验串口发来的数据
-        {
 #ifndef NOPORT
-            MManager.LogMessage(translator, gp);
-            if (translator.message.status / 5 != gp.color){      // 颜色改变，重新初始化参数
-                initGlobalParam(gp, addr, translator.message.status / 5);
-            }
-            if (translator.message.armor_flag != gp.armorStat){  // 装甲板状态改变，重新初始化参数
-                MManager.ChangeBigArmor(translator);
-            }
-#endif
-            if (translator.message.status % 5 != 0){         // 依据自瞄或打符模式调整相应相机参数
-#ifndef VIRTUALGRAB
-                camera.change_attack_mode(ENERGY, gp);
-#endif
-                gp.attack_mode = ENERGY;
-            }
-            else{
-#ifndef VIRTUALGRAB
-                camera.change_attack_mode(ARMOR, gp);
-#endif
-                gp.attack_mode = ARMOR;
-            }
-
-#ifndef VIRTUALGRAB
-            // camera.getFrame(pic);
-#ifdef SHOW_FPS
-            std::chrono::microseconds s = std::chrono::duration_cast<std::chrono::microseconds>(
-                std::chrono::system_clock::now().time_since_epoch());
-#endif
-#ifdef DEBUGMODE
-            camera.getFrame(pic);
-#else
-            camera.get_pic(&pic, gp);
-#endif
-#ifdef SHOW_FPS
-            std::chrono::microseconds e = std::chrono::duration_cast<std::chrono::microseconds>(
-                std::chrono::system_clock::now().time_since_epoch());
-            aim.setTime(static_cast<double>(e.count()) * 1e-6);
-            float t = (e - s).count();
-            system("clear");
-            printf("Get Frame ms:%.4f\n", t * 1e-3);      // 输出帧率
-            if (t * 1e-3 > 8.0)
-            {
-                error_times++;
-            }
-            if (error_times > 20)
-            {   
-                printf("low grabbing\n");
-                exit(-1);
-            }
-#endif
-#else
-            MManager.getFrame(pic, translator);     // 假如是虚拟取流，使用假数据
-#endif
-        }else{
-            printf("crc was wrong\n");
-            continue;
+        MManager.LogMessage(translator, gp);
+        // translator.message.status =3;
+        if (translator.message.status / 5 != gp.color)
+        {
+            initGlobalParam(gp, addr, translator.message.status / 5);
         }
+        if (translator.message.armor_flag != gp.armorStat)
+        {
+            MManager.ChangeBigArmor(translator);
+        }
+#endif// NOPORT
+        pic = buffers[processing_buffer].pic.clone();
+
+        buffers[processing_buffer].data_ready = false;
+
+        if (last_time_stamp == 0) dt = 0;
+        else dt = buffers[processing_buffer].time_stamp - last_time_stamp;
+        last_time_stamp = buffers[processing_buffer].time_stamp;
+
+        processing_buffer = (processing_buffer + 1) % 2;
+        pthread_mutex_unlock(&Mutex);
         // 如果图片为空，不执行
         if (pic.empty() == 1){
-            printf("pic is empty\n");
             exit(-1);
         }
-#ifdef RECORDVIDEO
+#ifdef RECORDVIDEO // 如果开启录制视频，使用MManager类进行录制
         MManager.recordFrame(pic);
 #endif
-
-        // WMI.JudgeClear(translator);     
-        // ========================打符模式========================
-        if (translator.message.status % 5 == 1 || translator.message.status % 5 == 3){   
+        // 自瞄模式
+        if (translator.message.status % 5 == 0)
+        {
 #ifdef DEBUGMODE
-            // times.push_back((double)translator.message.predict_time / 1000);
-#endif
-            // if (!WMIPRE.BulletSpeedProcess(translator, gp)){
-            //     translator.message.status = 102;
-            // }
-#ifdef USEWMNET     // 使用网络识别能量机关
-            // WMI.startWMINet(pic, translator);
-#else
-            // WMI.startWMIdentify(pic, translator);
-#endif
-            // 进行预测
-            // if (!WMIPRE.StartPredict(translator, gp, WMI)){
-            //     translator.message.status = 102;
-            //     std::cout << "WM indentity failed" << std::endl;
-            // }
-#ifdef DEBUGMODE
-            // // 如果开启DEBUGMODE，使用UI类在图片上绘制UI
-            // UI.receive_pic(pic);
-            // // 通过按键进行调参，这里的顺序必须是先这个再按键
-            // UI.windowsManager(gp, key, debug_t);
-            // cv::imshow("result", pic);
-            // // 获取按键，用于动态调参
-            // key = cv::waitKey(debug_t);
-            // if (key == ' ')
-            //     cv::waitKey(0);
-            // if (key == 27)
-            //     return nullptr;
-#endif
-        } 
-        // ========================自瞄模式========================
-        else if (translator.message.status % 5 == 0){     
-#ifdef DEBUGMODE
-            times.push_back((double)translator.message.predict_time / 1000);     // 记录时间
-#endif
-            aim.AimAutoYHY(pic, translator);
-            aim.NewTracker(translator, pic);
-            MManager.HoldMessage(translator);
+            times.push_back((double)translator.message.predict_time / 1000);
+            // uint32_t time_stamp = translator.message.predict_time;
+#endif // DEBUGMODE
+            aim.auto_aim(pic, translator, dt);
+            double time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+            translator.message.latency = time_stamp - last_time_stamp;
+            MManager.write(translator, *serialPort);
 #ifdef DEBUGMODE
             drawStat(points3d, times, translator);
             UI.receive_pic(pic);
@@ -262,6 +273,7 @@ void *OperationFunction(void *arg)
             send(new_socket, response.c_str(), response.size(), 0);
 #endif
 #endif
+
 #ifdef DEBUGMODE
             key = cv::waitKey(debug_t);
             if (key == ' ')
@@ -273,10 +285,6 @@ void *OperationFunction(void *arg)
 #ifdef SHOW_FPS
         std::chrono::microseconds this_tick = std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::system_clock::now().time_since_epoch());
-        double real_time = (this_tick - last_tick).count();
-        last_tick = this_tick;
-        double real_fps = 1 / real_time * 1e6;
-        printf("real_ms:%.4f|real_fps:%.4f\n", real_time * 1e-3, real_fps);
 #endif
         if (translator.message.status == 99)
             return nullptr;
@@ -284,12 +292,25 @@ void *OperationFunction(void *arg)
 #ifndef NOPORT
         MManager.UpdateCrc(translator, 61);
         MManager.write(translator, *serialPort);
+        // std::cout<<"status:"<<+translator.message.status <<std::endl;
 
 #ifdef SSH
         close(new_socket);
         close(server_fd);
 #endif
 #endif // NOPORT
+        pthread_mutex_lock(&Mutex);
+        pthread_count++;
+        if(pthread_count == 2)
+        {
+            pthread_count = 0;
+            pthread_cond_broadcast(&Cond);
+        }
+        else
+        {
+            pthread_cond_wait(&Cond,&Mutex);
+        }
+        pthread_mutex_unlock(&Mutex);
     }
     return NULL;
 }
