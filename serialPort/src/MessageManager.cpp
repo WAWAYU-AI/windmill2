@@ -72,12 +72,13 @@ MessageManager::~MessageManager()
 }
 void MessageManager::HoldMessage(Translator &ts)
 {
-    if (ts.message.latency == 0)
+    if (ts.message.crc == 0)
     {
         if (loss_cnt < message_hold_threshold)
         {
             loss_cnt += 1;
             ts.message = last_message.message;
+            ts.message.crc = 0;
         }
     }
     else

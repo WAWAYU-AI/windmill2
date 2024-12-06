@@ -88,10 +88,11 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
                 lost_frame_count.erase(lost_frame_count.begin() + i);
                 i--;
             }
-            continue;
+        } else {
+            lost_frame_count[i] = 0;
+            refine_zVector(i);
+            ekf_list[i].update(z_vector_list[i]);
         }
-        refine_zVector(i);
-        ekf_list[i].update(z_vector_list[i]);
     }
     if (ekf_list.size() > 0){
         auto x = ekf_list[0].get_X();

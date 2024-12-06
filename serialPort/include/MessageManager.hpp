@@ -13,7 +13,7 @@ class MessageManager
 private:
     Translator last_message;
     int loss_cnt;
-    int message_hold_threshold;
+    int message_hold_threshold = 10;
     GlobalParam *gp;
     uint32_t now_time;
     std::mutex message_lock;

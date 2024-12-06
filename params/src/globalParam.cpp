@@ -4,13 +4,14 @@
 #include <iostream>
 void GlobalParam::initGlobalParam(const int color)
 {   
-    const std::string root_path = std::filesystem::current_path();
     cv::FileStorage fs;
-
     this ->color = color;
 
     // 打开CameraConfig配置文件
-    fs.open(root_path + "/config/CameraConfig.yaml", cv::FileStorage::READ);
+    if(!fs.open("../config/CameraConfig.yaml", cv::FileStorage::READ)){
+        printf("CameraConfig.yaml not found!\n");
+        exit(1);
+    }
     fs["cam_index"] >> cam_index;
     fs["enable_auto_exp"] >> enable_auto_exp;
     fs["energy_exp_time"] >> energy_exp_time;
@@ -40,7 +41,10 @@ void GlobalParam::initGlobalParam(const int color)
     fs.release();
     
     // 打开AimautoConfig配置文件
-    fs.open(root_path + "/config/AimautoConfig.yaml", cv::FileStorage::READ);
+    if(!fs.open("../config/AimautoConfig.yaml", cv::FileStorage::READ)){
+        printf("AimautoConfig.yaml not found!\n");
+        exit(1);
+    }
     fs["cost_threshold"] >> cost_threshold;
     fs["max_lost_frame"] >> max_lost_frame;
     // 卡尔曼滤波相关参数
@@ -55,7 +59,10 @@ void GlobalParam::initGlobalParam(const int color)
     fs.release();
 
     // 打开DetectionConfig配置文件
-    fs.open(root_path + "/config/DetectionConfig.yaml", cv::FileStorage::READ);
+    if(!fs.open("../config/DetectionConfig.yaml", cv::FileStorage::READ)){
+        printf("DetectionConfig.yaml not found!\n");
+        exit(1);
+    }
     fs["min_ratio"] >> min_ratio;
     fs["max_ratio"] >> max_ratio;
     fs["max_angle_l"] >> max_angle_l;
@@ -70,7 +77,7 @@ void GlobalParam::initGlobalParam(const int color)
     fs["red_threshold"] >> red_threshold;
     fs.release();
     
-    LOG_IF(INFO, switch_INFO) << "initGlobalParam Successful";
+    // LOG_IF(INFO, switch_INFO) << "initGlobalParam Successful";
 }
 
 void GlobalParam::saveGlobalParam()
@@ -78,7 +85,10 @@ void GlobalParam::saveGlobalParam()
     cv::FileStorage fs;
 
     // 打开CameraConfig配置文件以写入参数
-    fs.open("../config/CameraConfig.yaml", cv::FileStorage::WRITE);
+    if(!fs.open("../config/CameraConfig.yaml", cv::FileStorage::WRITE)){
+        printf("CameraConfig.yaml not found!\n");
+        exit(1);
+    }
     fs << "cam_index" << cam_index;
     fs << "enable_auto_exp" << enable_auto_exp;
     fs << "energy_exp_time" << energy_exp_time;
@@ -105,7 +115,10 @@ void GlobalParam::saveGlobalParam()
     fs.release();
 
     // 打开AimautoConfig配置文件以写入参数
-    fs.open("../config/AimautoConfig.yaml", cv::FileStorage::WRITE);
+    if(!fs.open("../config/AimautoConfig.yaml", cv::FileStorage::WRITE)){
+        printf("AimautoConfig.yaml not found!\n");
+        exit(1);
+    }
     fs << "cost_threshold" << cost_threshold;
     fs << "max_lost_frame" << max_lost_frame;
     // 卡尔曼滤波相关参数
@@ -120,7 +133,10 @@ void GlobalParam::saveGlobalParam()
     fs.release();              
 
     // 打开DetectionConfig配置文件以写入参数
-    fs.open("../config/DetectionConfig.yaml", cv::FileStorage::WRITE);
+    if(!fs.open("../config/DetectionConfig.yaml", cv::FileStorage::WRITE)){
+        printf("DetectionConfig.yaml not found!\n");
+        exit(1);
+    }
     fs << "min_ratio" << min_ratio;
     fs << "max_ratio" << max_ratio;
     fs << "max_angle_l" << max_angle_l;
@@ -135,5 +151,5 @@ void GlobalParam::saveGlobalParam()
     fs << "red_threshold" << red_threshold;
     fs.release();
 
-    LOG_IF(INFO, switch_INFO) << "saveGlobalParam Successful";
+    // LOG_IF(INFO, switch_INFO) << "saveGlobalParam Successful";
 }

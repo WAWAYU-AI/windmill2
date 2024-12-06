@@ -17,23 +17,18 @@
 #include <opencv2/imgproc.hpp>
 #include <pthread.h>
 #include <unistd.h>
+#include <filesystem>
+
 #define RESIZE 0.5
 
 // 全局变量参数，这个参数存储着全部的需要的参数
 GlobalParam gp;
-// 全局地址参数，这个参数存储着全部的需要的地址
-address addr;
-
 // 通信类
 MessageManager MManager(gp);
 // 相机类
+#ifndef VIRTUALGRAB
 Camera camera(gp);
-
-// 全局图片，负责将图片从取流的读取线程读取到运算线程
-// cv::Mat pic;
-
-// 读信息，是从电控接受的信息，在读线程被赋值，之后交给运算线程
-// Translator translator;
+#endif
 
 // 定义双缓冲区
 struct DataBuffer{
@@ -64,20 +59,20 @@ int main(int argc, char **argv)
     // 初始化Glog并设置部分标志位
     google::InitGoogleLogging(argv[0]);
     // 设置Glog输出的log文件写在address中log_address对应的地址下
-    FLAGS_log_dir = addr.log_address;
+    FLAGS_log_dir = "./log";
     printf("welcome\n");
     // 实例化通信串口类
     SerialPort *serialPort = new SerialPort(argv[1]);
     // 设置通信串口对象初始值
     serialPort->InitSerialPort(int(*argv[2] - '0'), 8, 1, 'N');
 #ifndef NOPORT
-    MManager.read(temp_translator;, *serialPort);
+    Translator temp_translator;
+    MManager.read(temp_translator, *serialPort);
     // 通过电控发来的标志位是0～4还是5～9来确定是红方还是蓝方，其中0～4是红方，5～9是蓝方
-    MManager.initParam(temp_translator;.message.status / 5 == 0 ? RED : BLUE);
+    MManager.initParam(temp_translator.message.status / 5 == 0 ? RED : BLUE);
 #else
     // 再没有串口的时候直接设定颜色，这句代码可以根据需要进行更改
     MManager.initParam(BLUE);
-    // translator.message.predict_time = 0;
 #endif // NOPORT
 
     // 初始化线程锁和条件变量
@@ -94,10 +89,6 @@ int main(int argc, char **argv)
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
     CPU_SET(0, &cpuset);
-    // if (pthread_setaffinity_np(operationThread, sizeof(cpu_set_t), &cpuset) != 0) {
-    //     perror("Failed to set affinity for operationThread");
-    //     return 1;
-    // }
 
     // 等待线程结束
     pthread_join(readThread, NULL);
@@ -173,20 +164,18 @@ void *ReadFunction(void *arg) // 读线程
 void *OperationFunction(void *arg)
 {
     SerialPort *serialPort = (SerialPort *)arg;
-    // 实例化能量机关识别类
-    // WMIdentify WMI(gp);
     // 实例化自瞄类
     AimAuto aim(&gp);
     // 实例化UI类
     UIManager UI;
-    // 重置能量机关识别类
-    // WMI.clear();
-    // // 实例化能量机关预测类
-    // WMIPredict WMIPRE;
     cv::Mat pic;
     Translator translator;
     double dt = 0;
     double last_time_stamp = 0;
+#ifdef SHOW_FPS
+    int frame_count = 0;
+    double fps_time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+#endif
 #ifdef DEBUGMODE
     //=====动态调参使用参数======//
     // 当前按键
@@ -234,7 +223,8 @@ void *OperationFunction(void *arg)
         pthread_mutex_unlock(&Mutex);
         // 如果图片为空，不执行
         if (pic.empty() == 1){
-            exit(-1);
+            printf("pic is empty\n");
+            exit(1);
         }
 #ifdef RECORDVIDEO // 如果开启录制视频，使用MManager类进行录制
         MManager.recordFrame(pic);
@@ -242,13 +232,9 @@ void *OperationFunction(void *arg)
         // 自瞄模式
         if (translator.message.status % 5 == 0)
         {
-#ifdef DEBUGMODE
-            times.push_back((double)translator.message.predict_time / 1000);
-            // uint32_t time_stamp = translator.message.predict_time;
-#endif // DEBUGMODE
             aim.auto_aim(pic, translator, dt);
             double time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
-            translator.message.latency = time_stamp - last_time_stamp;
+            translator.message.latency = (time_stamp - last_time_stamp) * 1000;
             MManager.write(translator, *serialPort);
 #ifdef DEBUGMODE
             drawStat(points3d, times, translator);
@@ -257,7 +243,7 @@ void *OperationFunction(void *arg)
             cv::Mat tmp;
             cv::resize(pic, tmp, cv::Size((int)pic.size[1] * RESIZE, (int)pic.size[0] * RESIZE), cv::INTER_LINEAR);
             cv::imshow("aimauto__", tmp);
-#endif // DEBUGMODE
+#endif
 
 #ifndef DEBUGMODE
 #ifdef SSH
@@ -282,23 +268,25 @@ void *OperationFunction(void *arg)
                 return nullptr;
 #endif // DEBUGMODE
         }
-#ifdef SHOW_FPS
-        std::chrono::microseconds this_tick = std::chrono::duration_cast<std::chrono::microseconds>(
-            std::chrono::system_clock::now().time_since_epoch());
-#endif
         if (translator.message.status == 99)
             return nullptr;
 
 #ifndef NOPORT
-        MManager.UpdateCrc(translator, 61);
-        MManager.write(translator, *serialPort);
-        // std::cout<<"status:"<<+translator.message.status <<std::endl;
-
 #ifdef SSH
         close(new_socket);
         close(server_fd);
 #endif
 #endif // NOPORT
+#ifdef SHOW_FPS
+        frame_count++;
+        auto now_time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+        if (now_time_stamp - fps_time_stamp >= 1)
+        {
+            printf("FPS: %d  \tLatency: %.3f ms\n", frame_count, translator.message.latency);
+            frame_count = 0;
+            fps_time_stamp = now_time_stamp;
+        }
+#endif
         pthread_mutex_lock(&Mutex);
         pthread_count++;
         if(pthread_count == 2)

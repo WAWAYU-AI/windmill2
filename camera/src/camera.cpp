@@ -21,9 +21,7 @@ Camera::Camera(GlobalParam &gp)
     this->nRet = MV_CC_EnumDevices(MV_USB_DEVICE, &stDeviceList);
     if (stDeviceList.nDeviceNum == 0)
     {
-#ifdef THREADANALYSIS
         printf("nDeviceNum == 0\n");
-#endif
         exit(-1);
     }
     // 依照gp中的cam_index，设置句柄为设备列表中第cam_index个设备(存在第0个)
