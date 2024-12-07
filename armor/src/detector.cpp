@@ -203,7 +203,7 @@ std::vector<UnsolvedArmor> Detector::matchLights(const std::vector<Light> &light
                 continue;
 
             if (containLight(*light_1, *light_2, lights))
-            {
+            {   
                 continue;
             }
 

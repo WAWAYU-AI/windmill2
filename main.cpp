@@ -29,6 +29,9 @@ MessageManager MManager(gp);
 // 相机类
 Camera camera(gp);
 #endif
+#ifdef NOPORT
+const int COLOR = RED;
+#endif // NOPORT
 
 // 定义双缓冲区
 struct DataBuffer{
@@ -69,7 +72,7 @@ int main(int argc, char **argv)
     MManager.initParam(temp_translator.message.status / 5 == 0 ? RED : BLUE);
 #else
     // 再没有串口的时候直接设定颜色，这句代码可以根据需要进行更改
-    MManager.initParam(BLUE);
+    MManager.initParam(COLOR);
 #endif // NOPORT
 
     // 初始化线程锁和条件变量
@@ -131,10 +134,9 @@ void *ReadFunction(void *arg) // 读线程
 #ifndef VIRTUALGRAB
 
 #ifdef DEBUGMODE
-        camera.getFrame(buffers[current_buffer].pic);
-#else
-        camera.get_pic(&buffers[current_buffer].pic, gp);
+        camera.set_param_mult(gp);
 #endif
+        camera.get_pic(&buffers[current_buffer].pic, gp);
         buffers[current_buffer].data_ready = true;
 
 #else
@@ -284,6 +286,7 @@ void *OperationFunction(void *arg)
 #endif
         pthread_barrier_wait(&Barrier);
         // printf("operation thread is end %d  %d\n", cnt, processing_buffer);
+        // printf(gp.color == RED ? "RED" : "BLUE");
     }
     return NULL;
 }

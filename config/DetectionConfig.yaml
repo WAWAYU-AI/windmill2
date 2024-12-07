@@ -12,5 +12,5 @@ max_angle_a: 60.
 num_threshold: 8.0000000000000004e-01
 blue_threshold: 65
 red_threshold: 70
-grad_max: 100
-grad_min: 50
+grad_max: 300
+grad_min: 150

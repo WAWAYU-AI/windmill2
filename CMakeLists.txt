@@ -13,7 +13,7 @@
     # aim debug
     # add_definitions(-DPOSESTIMATION)
     add_definitions(-DSHOW_FPS)
-    add_definitions(-DDEBUGREFINE)
+    # add_definitions(-DDEBUGREFINE)
     add_definitions(-DDEBUGMODE)
     # add_definitions(-DDEBUGCOLOR)
     # add_definitions(-DDEBUGNUM)

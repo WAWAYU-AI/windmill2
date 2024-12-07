@@ -54,7 +54,8 @@ void GlobalParam::initGlobalParam(const int color)
     fs["r_xy_factor"] >> r_xy_factor;     
     fs["r_z"] >> r_z;     
     fs["r_yaw"] >> r_yaw;
-    fs["s2p0"] >> s2p0;
+    fs["s2p0xyr"] >> s2p0xyr;
+    fs["s2p0yaw"] >> s2p0yaw;
     fs["r_initial"] >> r_initial;
     fs.release();
 
@@ -130,7 +131,8 @@ void GlobalParam::saveGlobalParam()
     fs << "r_xy_factor" << r_xy_factor;     
     fs << "r_z" << r_z;    
     fs << "r_yaw" << r_yaw;    
-    fs << "s2p0" << s2p0;
+    fs << "s2p0xyr" << s2p0xyr;
+    fs << "s2p0yaw" << s2p0yaw;
     fs << "r_initial" << r_initial;
     fs.release();              
 

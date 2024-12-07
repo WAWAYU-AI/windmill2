@@ -22,18 +22,18 @@ inline double dyaw(double yaw1, double yaw2){
     return  min(ans, 2*M_PI - ans);
 }
 
-inline double cost(Armor &a, Armor &b){
+inline double cost(Armor a, Armor b){
     double ans = 0;
-    cv::Point3f p1 = a.center;
-    cv::Point3f p2 = b.center;
-    ans = sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2) + pow(p1.z - p2.z, 2));
-    ans += 50 * pow(dyaw(a.yaw, b.yaw), 2);
+    Eigen::Vector3d p1 = a.position;
+    Eigen::Vector3d p2 = b.position;
+    ans = sqrt(pow(p1(0) - p2(0), 2) + pow(p1(1) - p2(1), 2) + pow(p1(2) - p2(2), 2));
+    ans += 2500 * pow(dyaw(a.yaw, b.yaw), 2);
     return ans;
 }
 
 inline Armor calcArmor(double xc, double yc, double z, double r, double yaw){
     Armor armor;
-    armor.center = cv::Point3f(xc - r * cos(yaw), yc - r * sin(yaw), z);
+    armor.position = Eigen::Vector3d(xc - r * cos(yaw), yc - r * sin(yaw), z);
     armor.yaw = yaw;
     return armor;
 }
@@ -65,6 +65,11 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
             }       
         }
         km.solve(w, matchX, matchY, gp->cost_threshold);
+        std::cout << "matchX: ";
+        for (auto &x : matchX){
+            std::cout << x << " ";
+        }
+        std::cout << std::endl;
         for(int i = 0; i < n; i++)
             if(matchX[i] == -1){
                 all_matched = false;
@@ -77,7 +82,7 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
         int ekf_id  = matchX[i]/4;
         int armor_id= matchX[i]%4;
         auto &armor = armors_curr[i];
-        z_vector_list[ekf_id].segment(armor_id*4, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
+        z_vector_list[ekf_id].segment(armor_id*4, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
     }
     for (int i = 0; i < ekf_list.size(); i++){
         if (z_vector_list[i].norm() == 0){
@@ -121,38 +126,40 @@ void Tracker::refine_zVector(int ekf_id){
     // 看不见的装甲板的位姿由能看见的装甲板估计
     if (z.segment(0, 4) != Eigen::VectorXd::Zero(4)){
         armor = calcArmor(xc, yc, z(2), r1, z(3) + M_PI);
-        z.segment(8, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
+        z.segment(8, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
     }else if (z.segment(8, 4) != Eigen::VectorXd::Zero(4)){
         armor = calcArmor(xc, yc, z(10), r1, z(11) - M_PI);
-        z.segment(0, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
+        z.segment(0, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
     }
     if (z.segment(4, 4) != Eigen::VectorXd::Zero(4)){
         armor = calcArmor(xc, yc, z(6), r2, z(7) + M_PI);
-        z.segment(12, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
+        z.segment(12, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
     }else if (z.segment(12, 4) != Eigen::VectorXd::Zero(4)){
         armor = calcArmor(xc, yc, z(14), r2, z(15) - M_PI);
-        z.segment(4, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
+        z.segment(4, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
     }
     if (z.segment(0, 4) == Eigen::VectorXd::Zero(4) && z.segment(8, 4) == Eigen::VectorXd::Zero(4)){
         armor = calcArmor(xc, yc, z1, r1, z(7) - M_PI/2);
-        z.segment(0, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
+        z.segment(0, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
         armor = calcArmor(xc, yc, z1, r1, z(7) + M_PI/2);
-        z.segment(8, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
+        z.segment(8, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
     }
     if (z.segment(4, 4) == Eigen::VectorXd::Zero(4) && z.segment(12, 4) == Eigen::VectorXd::Zero(4)){
         armor = calcArmor(xc, yc, z2, r2, z(3) + M_PI/2);
-        z.segment(4, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
+        z.segment(4, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
         armor = calcArmor(xc, yc, z2, r2, z(3) - M_PI/2);
-        z.segment(12, 4) << armor.center.x, armor.center.y, armor.center.z, armor.yaw;
+        z.segment(12, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
     }
 }
 
 void Tracker::create_new_ekf(Armor &armor){
-    Eigen::MatrixXd P0 = Eigen::MatrixXd::Identity(11, 11) * gp->s2p0;
-    cv::Point3f c = calcArmor(armor.center.x, armor.center.y, armor.center.z, gp->r_initial, armor.yaw + M_PI).center; 
-    Eigen::VectorXd x0;
-    x0 << c.x, 0, c.y, 0, c.z, c.z, 0, gp->r_initial, gp->r_initial, armor.yaw, 0;
+    Eigen::MatrixXd P0 = Eigen::MatrixXd::Identity(11, 11) * gp->s2p0xyr;
+    P0(9, 9) = gp->s2p0yaw;
+    Eigen::Vector3d c = calcArmor(armor.position(0), armor.position(1), armor.position(2), gp->r_initial, armor.yaw + M_PI).position; 
+    Eigen::VectorXd x0(11);
+    x0 << c(0), 0, c(1), 0, c(2), c(2), 0, gp->r_initial, gp->r_initial, armor.yaw, 0;
     ekf_list.push_back(ExtendedKalmanFilter(f, h, j_f, j_h, u_q, u_r, nomolize_residual, P0, x0));
+    std::cout<< "create new ekf: " << cost(armor, calcArmor(x0(0), x0(2), x0(4), x0(7), x0(9))) << std::endl;
     z_vector_list.push_back(Eigen::VectorXd::Zero(16));
     lost_frame_count.push_back(0);
     armors_pred.push_back(calcArmor(x0(0), x0(2), x0(4), x0(7), x0(9)));
@@ -180,7 +187,7 @@ Tracker::Tracker(GlobalParam &gp){
     // 状态转移函数的雅可比矩阵
     j_f = [this](const Eigen::VectorXd &)
     {
-        Eigen::MatrixXd f(9, 9);
+        Eigen::MatrixXd f(11, 11);
         // clang-format off
         //    xc   vx   yc   vy   z1   z2   vz   r1   r2   yaw  vyaw
         f <<  1,   dt,  0,   0,   0,   0,   0,   0,   0,   0,   0,
@@ -201,7 +208,7 @@ Tracker::Tracker(GlobalParam &gp){
     // 观测函数
     h = [](const Eigen::VectorXd &x)
     {
-        Eigen::VectorXd z(4);
+        Eigen::VectorXd z(16);
         double xc = x(0), yc = x(2), yaw = x(9), z1 = x(4), z2 = x(5), r1 = x(7), r2 = x(8);
         z(0) = xc - r1 * cos(yaw); 
         z(1) = yc - r1 * sin(yaw); 
@@ -231,7 +238,7 @@ Tracker::Tracker(GlobalParam &gp){
     // 观测函数的雅可比矩阵
     j_h = [](const Eigen::VectorXd &x)
     {
-        Eigen::MatrixXd h(4, 9);
+        Eigen::MatrixXd h(16, 11);
         double yaw = x(6), r1 = x(7), r2 = x(8);
         // clang-format off
         //    xc   vx   yc   vy   z1   z2   vz   r1              r2                  yaw                vyaw
@@ -243,7 +250,6 @@ Tracker::Tracker(GlobalParam &gp){
               1,   0,   0,   0,   0,   0,   0,   0,              -cos(yaw+M_PI/2),   r2*sin(yaw+M_PI/2),    0,
               0,   0,   1,   0,   0,   0,   0,   0,              -sin(yaw+M_PI/2),   -r2*cos(yaw+M_PI/2),   0,
               0,   0,   0,   0,   0,   1,   0,   0,              0,                  0,                     0,
-              0,   0,   0,   0,   0,   0,   0,   0,              0,                  0,                     0,
               0,   0,   0,   0,   0,   0,   0,   0,              0,                  1,                     0,
 
               1,   0,   0,   0,   0,   0,   0,   -cos(yaw+M_PI), 0,                  r1*sin(yaw+M_PI),      0,
@@ -263,7 +269,7 @@ Tracker::Tracker(GlobalParam &gp){
     // 过程噪声协方差矩阵 u_q_0
     u_q = [this, &gp]()
     {
-        Eigen::MatrixXd q(9, 9);
+        Eigen::MatrixXd q(11, 11);
         double t{dt}, x{gp.s2qxyz}, y{gp.s2qyaw}, r{gp.s2qr};
         // 计算各种噪声参数
         double q_x_x{pow(t, 4) / 4 * x}, q_x_vx{pow(t, 3) / 2 * x}, q_vx_vx{pow(t, 2) * x};

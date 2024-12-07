@@ -67,7 +67,12 @@ void convertNumber(const std::string &number_s, int &number_i)
 void AimAuto::draw_armor_back(cv::Mat &pic, Armor &armor, int number){
     std::vector<cv::Point3f> objPoints;
     if (!gp->isBigArmor[number])
-        objPoints = small_armor;
+        objPoints = {
+            cv::Point3f(-67.50F, 62.50F, 0), // 2,3,4,1象限顺序
+            cv::Point3f(-67.50F, -62.50F, 0),
+            cv::Point3f(67.50F, -62.50F, 0),
+            cv::Point3f(67.50F, 62.50F, 0),
+        };
     else
         objPoints = big_armor;
     std::vector<cv::Point2f> imgPoints;
@@ -131,6 +136,9 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
     cv::putText(src, "Y: " + std::to_string(armor.center.y), cv::Point(20, 250), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
     cv::putText(src, "Z: " + std::to_string(armor.center.z), cv::Point(20, 300), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
     cv::putText(src, "Yaw: " + std::to_string(armor.yaw), cv::Point(15, 350), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
+    cv::putText(src, "x: " + std::to_string(armor.position(0)), cv::Point(15, 400), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
+    cv::putText(src, "y: " + std::to_string(armor.position(1)), cv::Point(15, 450), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
+    cv::putText(src, "z: " + std::to_string(armor.position(2)), cv::Point(15, 500), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
 #endif // DEBUGMODE
 
     tracker->track(tar_list, ts, dt);
@@ -174,6 +182,11 @@ void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armo
     cv::Mat rotation_matrix;
     cv::Rodrigues(rVec, rotation_matrix);
     double yaw = std::atan2(rotation_matrix.at<double>(0, 2), rotation_matrix.at<double>(2, 2));//储存装甲板信息
+    if (yaw < 0){
+        yaw = - yaw - M_PI;
+    }else{
+        yaw = M_PI - yaw;
+    }
     tar.angle = cv::Point3f(rVec.at<double>(0), rVec.at<double>(1), rVec.at<double>(2));
     tar.color = gp->color;
     tar.type = number;
@@ -196,10 +209,10 @@ void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armo
     tar.yaw = - ts.message.yaw + yaw;//装甲板yaw
     Eigen::MatrixXd r_mat = m_yaw * m_pitch;//旋转矩阵
     tar.position = r_mat * temp;
-    cv::Mat a(3, 3, CV_32F, r_mat.data());
-    cv::Mat b = (cv::Mat_<float>(3, 3) << 0, 0, 1, -1, 0, 0, 0, -1, 0);
+    cv::Mat a(3, 3, CV_64F, r_mat.data());
+    cv::Mat b = (cv::Mat_<double>(3, 3) << 0, 0, 1, -1, 0, 0, 0, -1, 0);
     rotation_matrix = a * b * rotation_matrix;
     cv::Rodrigues(rotation_matrix, rVec);
-    tar.angle = cv::Point3f(rVec.at<double>(0), rVec.at<double>(1), rVec.at<double>(2));
+    tar.rVec = rVec;    // 世界系到车体系旋转向量
     //=========================================//
 }

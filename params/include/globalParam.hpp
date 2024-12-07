@@ -112,6 +112,7 @@ struct Armor
     cv::Point2f apex[4];
     double distance_to_image_center;
     Eigen::Vector3d position;
+    cv::Mat rVec;
     double yaw;
 };
 struct Armors
@@ -264,7 +265,8 @@ struct GlobalParam
     double r_xy_factor = 0.032;  
     double r_z = 1e-7; 
     double r_yaw = 0.016;  
-    double s2p0 = 1000;
+    double s2p0xyr = 1000;
+    double s2p0yaw = 1;
     double r_initial = 450;
 
     //===新加的===//

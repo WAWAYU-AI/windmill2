@@ -183,7 +183,7 @@ void MessageManager::initParam(int color)
 
     // 如果颜色是红色，gp读取红色对应的参数
     if (color == RED)
-        gp -> initGlobalParam(BLUE);
+        gp -> initGlobalParam(RED);
     // 如果颜色是蓝色，gp读取蓝色对应的参数
     else if (color == BLUE)
         gp ->initGlobalParam(BLUE);
