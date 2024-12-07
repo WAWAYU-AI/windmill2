@@ -26,6 +26,19 @@
 #define V_ZOOM 1.0
 #define VYAW_ZOOM 1.0
 
+const std::vector<cv::Point3f> small_armor = {
+    cv::Point3f(-67.50F, 28.50F, 0), // 2,3,4,1象限顺序
+    cv::Point3f(-67.50F, -28.50F, 0),
+    cv::Point3f(67.50F, -28.50F, 0),
+    cv::Point3f(67.50F, 28.50F, 0),
+};
+const std::vector<cv::Point3f> big_armor = {
+    cv::Point3f(-112.50F, 28.50F, 0), // 2,3,4,1象限顺序
+    cv::Point3f(-112.50F, -28.50F, 0),
+    cv::Point3f(112.50F, -28.50F, 0),
+    cv::Point3f(112.50F, 28.50F, 0),
+};
+
 void convertNumber(const std::string &number_s, int &number_i)
 {
     if (number_s == "outpost")
@@ -51,6 +64,24 @@ void convertNumber(const std::string &number_s, int &number_i)
     }
 }
 
+void AimAuto::draw_armor_back(cv::Mat &pic, Armor &armor, int number){
+    std::vector<cv::Point3f> objPoints;
+    if (!gp->isBigArmor[number])
+        objPoints = small_armor;
+    else
+        objPoints = big_armor;
+    std::vector<cv::Point2f> imgPoints;
+    cv::Mat rVec = (cv::Mat_<double>(3, 1) << armor.angle.x, armor.angle.y, armor.angle.z);
+    cv::Mat tVec = (cv::Mat_<double>(3, 1) << armor.center.x, armor.center.y, armor.center.z);
+    cv::Mat _K = (cv::Mat_<double>(3, 3) << (float)gp->fx, 0, (float)gp->cx, 0, (float)gp->fy, (float)gp->cy, 0, 0, 1);
+    std::vector<float> _dist = {(float)gp->k1, (float)gp->k2, (float)gp->p1, (float)gp->p2, (float)gp->k3};
+    cv::projectPoints(objPoints, rVec, tVec, _K, _dist, imgPoints);
+    cv::line(pic, imgPoints[0], imgPoints[1], cv::Scalar(255,255,255), 1);
+    cv::line(pic, imgPoints[1], imgPoints[2], cv::Scalar(255,255,255), 1);
+    cv::line(pic, imgPoints[2], imgPoints[3], cv::Scalar(255,255,255), 1);
+    cv::line(pic, imgPoints[3], imgPoints[0], cv::Scalar(255,255,255), 1);
+}
+
 AimAuto::AimAuto(GlobalParam *gp)
 {
     // 保存全局参数及其他初始化
@@ -71,7 +102,7 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
               { return abs((double)src.cols / 2 - ((la.left_light.top + la.right_light.top + la.left_light.bottom + la.right_light.bottom) / 4).x) < abs((double)src.cols / 2 - ((lb.left_light.top + lb.right_light.top + lb.left_light.bottom + lb.right_light.bottom) / 4).x); });
     for (auto armor : armors)
     {
-        int number = -1;
+        int number = 0;
         convertNumber(armor.number, number);
         if (number == 7){ // base
             continue;
@@ -90,10 +121,36 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
         cv::circle(src, tar.apex[1], 3, cv::Scalar(193, 182, 255), -1);
         cv::circle(src, tar.apex[2], 3, cv::Scalar(193, 182, 255), -1);
         cv::circle(src, tar.apex[3], 3, cv::Scalar(193, 182, 255), -1);
+        draw_armor_back(src, tar, number);
 #endif // DEBUGMODE
     }
+#ifdef DEBUGMODE
+    Armor armor;
+    if (tar_list.size() > 0) armor = tar_list[0];
+    cv::putText(src, "X: " + std::to_string(armor.center.x), cv::Point(20, 200), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
+    cv::putText(src, "Y: " + std::to_string(armor.center.y), cv::Point(20, 250), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
+    cv::putText(src, "Z: " + std::to_string(armor.center.z), cv::Point(20, 300), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
+    cv::putText(src, "Yaw: " + std::to_string(armor.yaw), cv::Point(15, 350), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
+#endif // DEBUGMODE
 
     tracker->track(tar_list, ts, dt);
+
+#ifdef DEBUGMODE
+    if (ts.message.crc){
+        cv::putText(src, "latency: " + std::to_string(ts.message.latency), cv::Point(1050, 150), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
+        cv::putText(src, "xc: " + std::to_string(ts.message.x_c), cv::Point(1130, 200), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
+        cv::putText(src, "vx: " + std::to_string(ts.message.v_x), cv::Point(1130, 250), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
+        cv::putText(src, "yc: " + std::to_string(ts.message.y_c), cv::Point(1130, 300), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
+        cv::putText(src, "vy: " + std::to_string(ts.message.v_y), cv::Point(1130, 350), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
+        cv::putText(src, "z1: " + std::to_string(ts.message.z1 ), cv::Point(1130, 400), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
+        cv::putText(src, "z2: " + std::to_string(ts.message.z2 ), cv::Point(1130, 450), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
+        cv::putText(src, "vz: " + std::to_string(ts.message.v_z), cv::Point(1130, 500), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
+        cv::putText(src, "r1: " + std::to_string(ts.message.r1 ), cv::Point(1130, 550), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
+        cv::putText(src, "r2: " + std::to_string(ts.message.r2 ), cv::Point(1130, 600), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
+        cv::putText(src, "yaw: " + std::to_string(ts.message.yaw_a), cv::Point(1110, 650), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
+        cv::putText(src, "vyaw: " + std::to_string(ts.message.vyaw), cv::Point(1100, 700), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
+    }
+#endif // DEBUGMODE
     
 }
 void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armor &tar, int number)
@@ -101,69 +158,22 @@ void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armo
     //===============pnp解算===============//
     std::vector<cv::Point3f> objPoints;
     if (!gp->isBigArmor[number])
-    { // 如果 ?小 ? 甲 ?
-        if (gp->color == 1)
-        {
-            // printf("BLUE\n");
-            objPoints = std::vector<cv::Point3f>{
-                cv::Point3f(-67.50F, 28.50F, 0), // 2,3,4,1象限顺序
-                cv::Point3f(-67.50F, -28.50F, 0),
-                cv::Point3f(67.50F, -28.50F, 0),
-                cv::Point3f(67.50F, 28.50F, 0),
-            };
-        }
-        else
-        {
-            // printf("RED\n");
-            objPoints = std::vector<cv::Point3f>{
-                cv::Point3f(-67.50F, 28.5F, 0), // 2,3,4,1象限顺序
-                cv::Point3f(-67.50F, -28.5F, 0),
-                cv::Point3f(67.50F, -28.5F, 0),
-                cv::Point3f(67.50F, 28.5F, 0),
-            };
-        }
-    }
-    else // 如果不是小 ? 甲 ?
-        objPoints = std::vector<cv::Point3f>{
-            cv::Point3f(-112.50F, 28.50F, 0), // 2,3,4,1象限顺序
-            cv::Point3f(-112.50F, -28.50F, 0),
-            cv::Point3f(112.50F, -28.50F, 0),
-            cv::Point3f(112.50F, 28.50F, 0),
-        };
-    cv::Mat tVec, rVec, _K, _dist;
+        objPoints = small_armor;
+    else 
+        objPoints = big_armor;
+    cv::Mat rVec, tVec, _K, _dist;
     tVec.create(3, 1, CV_64F);
     rVec.create(3, 1, CV_64F);
-    _K = (cv::Mat_<double>(3, 3) << (float)gp->fx, 0, (float)gp->cx, 0, (float)gp->fy, (float)gp->cy, 0, 0, 1);
-    _dist = (cv::Mat_<double>(1, 5) << (float)gp->k1, (float)gp->k2, (float)gp->p1, (float)gp->p2, (float)gp->k3);
+    _K = (cv::Mat_<double>(3, 3) << (float)gp->fx, 0, (float)gp->cx, 0, (float)gp->fy, (float)gp->cy, 0, 0, 1);//相机的内参矩阵
+    _dist = (cv::Mat_<float>(1, 5) << (float)gp->k1, (float)gp->k2, (float)gp->p1, (float)gp->p2, (float)gp->k3);//相机的畸变系数
     std::vector<cv::Point2f> tmp = {armor.left_light.top, armor.left_light.bottom, armor.right_light.bottom, armor.right_light.top};
-    bool use_ippe_sq = 0;
-    if (use_ippe_sq)
-    {
-        std::swap(objPoints[1], objPoints[3]);
-        cv::solvePnP(objPoints, tmp, _K, _dist, rVec, tVec, false, cv::SOLVEPNP_IPPE_SQUARE);
-    }
-    else
-    {
-        cv::solvePnP(objPoints, tmp, _K, _dist, rVec, tVec, false, cv::SOLVEPNP_IPPE);
-    }
-
+    cv::solvePnP(objPoints,tmp,_K,_dist,rVec,tVec,false,cv::SOLVEPNP_IPPE);
+    
     //=================坐标系转换================//
     tar.center = cv::Point3f(tVec.at<double>(0), tVec.at<double>(1), tVec.at<double>(2));
     cv::Mat rotation_matrix;
-    double theta = rVec.at<double>(2);
     cv::Rodrigues(rVec, rotation_matrix);
-    double yaw = std::atan2(rotation_matrix.at<double>(0, 2), rotation_matrix.at<double>(2, 2));
-    if (yaw >= 0)
-    {
-        yaw = -(3.14 - yaw);
-    }
-    else
-    {
-        yaw = 3.14 + yaw;
-    }
-    //================数据 ? ?===================//
-
-    tar.yaw = yaw;
+    double yaw = std::atan2(rotation_matrix.at<double>(0, 2), rotation_matrix.at<double>(2, 2));//储存装甲板信息
     tar.angle = cv::Point3f(rVec.at<double>(0), rVec.at<double>(1), rVec.at<double>(2));
     tar.color = gp->color;
     tar.type = number;
@@ -171,37 +181,25 @@ void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armo
     tar.apex[1] = armor.left_light.bottom;
     tar.apex[2] = armor.right_light.bottom;
     tar.apex[3] = armor.right_light.top;
-    tar.distance_to_image_center = abs((double)src.cols / 2 - ((tar.apex[0] + tar.apex[1] + tar.apex[2] + tar.apex[3]) / 4).x);
+    
 #ifdef DEBUGMODE
     cv::putText(src, "PnpYaw:" + std::to_string(yaw), cv::Point(500, 200), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 2);
+    // cv::imshow("result", src);
 #endif
-    if (number == 7)
-    // base
-    {
-        tar.type = 10;
-    }
-    else if (number == 6)
-    // sentry
-    {
-        tar.type = 7;
-    }
-    else if (number == 0)
-    {
-        tar.type = 11;
-    }
-    // ts.message.armor_flag = tar.type;
-    Eigen::MatrixXd m_pitch(3, 3);
-    Eigen::MatrixXd m_yaw(3, 3);
-    double raw_yaw = ts.message.yaw;
+    Eigen::MatrixXd m_pitch(3, 3);//pitch旋转矩阵
+    Eigen::MatrixXd m_yaw(3, 3);//yaw旋转矩阵
     ts.message.yaw = fmod(ts.message.yaw, 2 * M_PI);
     m_yaw << cos(ts.message.yaw), -sin(ts.message.yaw), 0, sin(ts.message.yaw), cos(ts.message.yaw), 0, 0, 0, 1;
-    m_pitch << cos(ts.message.pitch), 0, sin(ts.message.pitch), 0, 1, 0, -sin(ts.message.pitch), 0, cos(ts.message.pitch);
+    m_pitch << cos(ts.message.pitch), 0, -sin(ts.message.pitch), 0, 1, 0, sin(ts.message.pitch), 0, cos(ts.message.pitch);
     Eigen::Vector3d temp;
     temp = Eigen::Vector3d(tar.center.z + VECTOR_X, -tar.center.x + VECTOR_Y, -tar.center.y + VECTOR_Z);
-    tar.yaw -= ts.message.yaw;
-    tar.yaw *= -1;
-    tar.position = m_yaw * m_pitch * temp;
-    // this->position_save = tar.center;
-    // position is the world axis
+    tar.yaw = - ts.message.yaw + yaw;//装甲板yaw
+    Eigen::MatrixXd r_mat = m_yaw * m_pitch;//旋转矩阵
+    tar.position = r_mat * temp;
+    cv::Mat a(3, 3, CV_32F, r_mat.data());
+    cv::Mat b = (cv::Mat_<float>(3, 3) << 0, 0, 1, -1, 0, 0, 0, -1, 0);
+    rotation_matrix = a * b * rotation_matrix;
+    cv::Rodrigues(rotation_matrix, rVec);
+    tar.angle = cv::Point3f(rVec.at<double>(0), rVec.at<double>(1), rVec.at<double>(2));
     //=========================================//
 }

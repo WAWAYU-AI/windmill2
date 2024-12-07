@@ -10,10 +10,30 @@
  */
 #include <UIManager.hpp>
 
-UIManager::UIManager()
+UIManager::UIManager(GlobalParam &gp, int max_row)
 {
-    this->page = 0;
-    this->row = 0;
+    this->gp = &gp;
+    this->page = 1;
+    this->row = 1;
+    param_list = {
+        {&gp.armor_exp_time, "armor_exp_time", '+', 10, 100},
+        {&gp.red_threshold, "red_threshold", '+', 1, 10},
+        {&gp.blue_threshold, "blue_threshold", '+', 1, 10},
+        {&gp.grad_max, "grad_max", '+', 5, 50},
+        {&gp.grad_min, "grad_min", '+', 5, 50},
+        {&gp.cost_threshold, "cost_threshold", '+', 10, 100},
+        {&gp.s2qxyz, "s2qxyz", '*', 1.1, 2},
+        {&gp.s2qr, "s2qr", '*', 1.1, 2},
+        {&gp.s2qyaw, "s2qyaw", '*', 1.1, 2},
+        {&gp.s2p0, "s2p0", '*', 1.1, 2},
+        {&gp.r_xy_factor, "r_xy_factor", '*', 1.1, 2},
+        {&gp.r_z, "r_z", '*', 1.1, 2},
+        {&gp.r_yaw, "r_yaw", '*', 1.1, 2},
+        {&gp.r_initial, "r_initial", '+', 10, 100},
+    };
+    this->max_row = max_row;
+    this->max_page = ((int)param_list.size() - 1) / max_row + 1;
+
 }
 
 UIManager::~UIManager()
@@ -25,30 +45,32 @@ void UIManager::receive_pic(cv::Mat img)
     this->img = img;
 }
 
-void UIManager::windowsManager(GlobalParam &gp, int key, int &debug_t)
+void UIManager::windowsManager(int key, int &debug_t)
 {
     tag = 0;
-    if (key == 'w' || key == 'W')
+    if (key == 'w' || key == 'W')   //上
     {
-        if (row > 0)
+        if (row > 1)
             row--;
     }
-    if (key == 's' || key == 'S')
+    if (key == 's' || key == 'S')   //下
     {
-        if (row < 5)
+        if (row < max_row)
             row++;
+        if ((page - 1) * max_row + row - 1 >= (int)param_list.size())
+            row = (int)param_list.size() % max_row;
     }
-    if (key == 'a' || key == 'A')
+    if (key == 'a' || key == 'A')   //左
     {
-        if (page > 0)
+        if (page > 1)
             page--;
     }
-    if (key == 'd' || key == 'D')
+    if (key == 'd' || key == 'D')   //右
     {
-        if (page < 6)
+        if (page < max_page)
             page++;
     }
-    if (key == 'o' || key == 'O')
+    if (key == 'o' || key == 'O')   
     {
         debug_t *= 2;
     }
@@ -59,586 +81,101 @@ void UIManager::windowsManager(GlobalParam &gp, int key, int &debug_t)
         else
             debug_t = 1;
     }
-    if (key == 'u' || key == 'U')
+    if (key == 'u' || key == 'U')   //少量增加
     {
         tag = 1;
     }
-    if (key == 'j' || key == 'J')
+    if (key == 'j' || key == 'J')   //少量减少
     {
         tag = 3;
     }
-    if (key == 'i' || key == 'I')
+    if (key == 'i' || key == 'I')   //大量增加
     {
         tag = 2;
     }
-    if (key == 'k' || key == 'K')
+    if (key == 'k' || key == 'K')   //大量减少
     {
         tag = 4;
     }
-    cv::putText(this->img, "Page:" + std::to_string(page) + "  Left:Z  Right:C", cv::Point(20, 400), 2, 0.5, cv::Scalar(255, 255, 0));
-    cv::putText(this->img, "Row:" + std::to_string(row) + "  Up:R  Down:F", cv::Point(20, 425), 2, 0.5, cv::Scalar(255, 255, 0));
-    // if (page == 0)
-    // {
-    //     if (row == 0)
-    //         cv::putText(this->img, "HMax:" + std::to_string(gp.hmax), cv::Point(20, 20), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "HMax:" + std::to_string(gp.hmax), cv::Point(20, 20), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 1)
-    //         cv::putText(this->img, "HMin:" + std::to_string(gp.hmin), cv::Point(20, 45), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "HMin:" + std::to_string(gp.hmin), cv::Point(20, 45), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 2)
-    //         cv::putText(this->img, "SMax:" + std::to_string(gp.smax), cv::Point(20, 70), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "SMax:" + std::to_string(gp.smax), cv::Point(20, 70), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 3)
-    //         cv::putText(this->img, "SMin:" + std::to_string(gp.smin), cv::Point(20, 95), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "SMin:" + std::to_string(gp.smin), cv::Point(20, 95), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 4)
-    //         cv::putText(this->img, "VMax:" + std::to_string(gp.vmax), cv::Point(20, 120), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "VMax:" + std::to_string(gp.vmax), cv::Point(20, 120), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 5)
-    //         cv::putText(this->img, "VMin:" + std::to_string(gp.vmin), cv::Point(20, 145), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "VMin:" + std::to_string(gp.vmin), cv::Point(20, 145), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (tag == 1)
-    //     {
-    //         if (row == 0)
-    //             gp.hmax += 1;
-    //         if (row == 1)
-    //             gp.hmin += 1;
-    //         if (row == 2)
-    //             gp.smax += 1;
-    //         if (row == 3)
-    //             gp.smin += 1;
-    //         if (row == 4)
-    //             gp.vmax += 1;
-    //         if (row == 5)
-    //             gp.vmin += 1;
-    //     }
-    //     else if (tag == 2)
-    //     {
-    //         if (row == 0)
-    //             gp.hmax += 10;
-    //         if (row == 1)
-    //             gp.hmin += 10;
-    //         if (row == 2)
-    //             gp.smax += 10;
-    //         if (row == 3)
-    //             gp.smin += 10;
-    //         if (row == 4)
-    //             gp.vmax += 10;
-    //         if (row == 5)
-    //             gp.vmin += 10;
-    //     }
-    //     if (tag == 3)
-    //     {
-    //         if (row == 0)
-    //             gp.hmax -= 1;
-    //         if (row == 1)
-    //             gp.hmin -= 1;
-    //         if (row == 2)
-    //             gp.smax -= 1;
-    //         if (row == 3)
-    //             gp.smin -= 1;
-    //         if (row == 4)
-    //             gp.vmax -= 1;
-    //         if (row == 5)
-    //             gp.vmin -= 1;
-    //     }
-    //     else if (tag == 4)
-    //     {
-    //         if (row == 0)
-    //             gp.hmax -= 10;
-    //         if (row == 1)
-    //             gp.hmin -= 10;
-    //         if (row == 2)
-    //             gp.smax -= 10;
-    //         if (row == 3)
-    //             gp.smin -= 10;
-    //         if (row == 4)
-    //             gp.vmax -= 10;
-    //         if (row == 5)
-    //             gp.vmin -= 10;
-    //     }
-    // }
-    // else if (page == 1)
-    // {
-    //     if (row == 0)
-    //         cv::putText(this->img, "Enemy HMax:" + std::to_string(gp.e_hmax), cv::Point(20, 20), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "Enemy HMax:" + std::to_string(gp.e_hmax), cv::Point(20, 20), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 1)
-    //         cv::putText(this->img, "Enemy HMin:" + std::to_string(gp.e_hmin), cv::Point(20, 45), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "Enemy HMin:" + std::to_string(gp.e_hmin), cv::Point(20, 45), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 2)
-    //         cv::putText(this->img, "Enemy SMax:" + std::to_string(gp.e_smax), cv::Point(20, 70), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "Enemy SMax:" + std::to_string(gp.e_smax), cv::Point(20, 70), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 3)
-    //         cv::putText(this->img, "Enemy SMin:" + std::to_string(gp.e_smin), cv::Point(20, 95), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "Enemy SMin:" + std::to_string(gp.e_smin), cv::Point(20, 95), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 4)
-    //         cv::putText(this->img, "Enemy VMax:" + std::to_string(gp.e_vmax), cv::Point(20, 120), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "Enemy VMax:" + std::to_string(gp.e_vmax), cv::Point(20, 120), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 5)
-    //         cv::putText(this->img, "Enemy VMin:" + std::to_string(gp.e_vmin), cv::Point(20, 145), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "Enemy VMin:" + std::to_string(gp.e_vmin), cv::Point(20, 145), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (tag == 1)
-    //     {
-    //         if (row == 0)
-    //             gp.e_hmax += 1;
-    //         if (row == 1)
-    //             gp.e_hmin += 1;
-    //         if (row == 2)
-    //             gp.e_smax += 1;
-    //         if (row == 3)
-    //             gp.e_smin += 1;
-    //         if (row == 4)
-    //             gp.e_vmax += 1;
-    //         if (row == 5)
-    //             gp.e_vmin += 1;
-    //     }
-    //     else if (tag == 2)
-    //     {
-    //         if (row == 0)
-    //             gp.e_hmax += 10;
-    //         if (row == 1)
-    //             gp.e_hmin += 10;
-    //         if (row == 2)
-    //             gp.e_smax += 10;
-    //         if (row == 3)
-    //             gp.e_smin += 10;
-    //         if (row == 4)
-    //             gp.e_vmax += 10;
-    //         if (row == 5)
-    //             gp.e_vmin += 10;
-    //     }
-    //     if (tag == 3)
-    //     {
-    //         if (row == 0)
-    //             gp.e_hmax -= 1;
-    //         if (row == 1)
-    //             gp.e_hmin -= 1;
-    //         if (row == 2)
-    //             gp.e_smax -= 1;
-    //         if (row == 3)
-    //             gp.e_smin -= 1;
-    //         if (row == 4)
-    //             gp.e_vmax -= 1;
-    //         if (row == 5)
-    //             gp.e_vmin -= 1;
-    //     }
-    //     else if (tag == 4)
-    //     {
-    //         if (row == 0)
-    //             gp.e_hmax -= 10;
-    //         if (row == 1)
-    //             gp.e_hmin -= 10;
-    //         if (row == 2)
-    //             gp.e_smax -= 10;
-    //         if (row == 3)
-    //             gp.e_smin -= 10;
-    //         if (row == 4)
-    //             gp.e_vmax -= 10;
-    //         if (row == 5)
-    //             gp.e_vmin -= 10;
-    //     }
-    // }
-    // else if (page == 2)
-    // {
-    //     if (row == 0)
-    //         cv::putText(this->img, "s_R_min:" + std::to_string(gp.s_R_min), cv::Point(20, 20), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "s_R_min:" + std::to_string(gp.s_R_min), cv::Point(20, 20), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 1)
-    //         cv::putText(this->img, "s_R_max:" + std::to_string(gp.s_R_max), cv::Point(20, 45), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "s_R_max:" + std::to_string(gp.s_R_max), cv::Point(20, 45), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 2)
-    //         cv::putText(this->img, "R_circularity_min:" + std::to_string(gp.R_circularity_min), cv::Point(20, 70), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "R_circularity_min:" + std::to_string(gp.R_circularity_min), cv::Point(20, 70), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 3)
-    //         cv::putText(this->img, "R_circularity_max:" + std::to_string(gp.R_circularity_max), cv::Point(20, 95), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "R_circularity_max:" + std::to_string(gp.R_circularity_max), cv::Point(20, 95), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 4)
-    //         cv::putText(this->img, "R_compactness_min:" + std::to_string(gp.R_compactness_min), cv::Point(20, 120), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "R_compactness_min:" + std::to_string(gp.R_compactness_min), cv::Point(20, 120), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 5)
-    //         cv::putText(this->img, "R_compactness_max:" + std::to_string(gp.R_compactness_max), cv::Point(20, 145), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "R_compactness_max:" + std::to_string(gp.R_compactness_max), cv::Point(20, 145), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (tag == 1)
-    //     {
-    //         if (row == 0)
-    //             gp.s_R_min += 10;
-    //         if (row == 1)
-    //             gp.s_R_max += 10;
-    //         if (row == 2)
-    //             gp.R_circularity_min += 0.01;
-    //         if (row == 3)
-    //             gp.R_circularity_max += 0.01;
-    //         if (row == 4)
-    //             gp.R_compactness_min += 1;
-    //         if (row == 5)
-    //             gp.R_compactness_max += 1;
-    //     }
-    //     else if (tag == 2)
-    //     {
-    //         if (row == 0)
-    //             gp.s_R_min += 100;
-    //         if (row == 1)
-    //             gp.s_R_max += 100;
-    //         if (row == 2)
-    //             gp.R_circularity_min += 0.1;
-    //         if (row == 3)
-    //             gp.R_circularity_max += 0.1;
-    //         if (row == 4)
-    //             gp.R_compactness_min += 10;
-    //         if (row == 5)
-    //             gp.R_compactness_max += 10;
-    //     }
-    //     if (tag == 3)
-    //     {
-    //         if (row == 0)
-    //             gp.s_R_min -= 10;
-    //         if (row == 1)
-    //             gp.s_R_max -= 10;
-    //         if (row == 2)
-    //             gp.R_circularity_min -= 0.01;
-    //         if (row == 3)
-    //             gp.R_circularity_max -= 0.01;
-    //         if (row == 4)
-    //             gp.R_compactness_min -= 1;
-    //         if (row == 5)
-    //             gp.R_compactness_max -= 1;
-    //     }
-    //     else if (tag == 4)
-    //     {
-    //         if (row == 0)
-    //             gp.s_R_min -= 100;
-    //         if (row == 1)
-    //             gp.s_R_max -= 100;
-    //         if (row == 2)
-    //             gp.R_circularity_min -= 0.1;
-    //         if (row == 3)
-    //             gp.R_circularity_max -= 0.1;
-    //         if (row == 4)
-    //             gp.R_compactness_min -= 10;
-    //         if (row == 5)
-    //             gp.R_compactness_max -= 10;
-    //     }
-    // }
-    // else if (page == 3)
-    // {
-    //     if (row == 0)
-    //         cv::putText(this->img, "s_wing_min:" + std::to_string(gp.s_wing_min), cv::Point(20, 20), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "s_wing_min:" + std::to_string(gp.s_wing_min), cv::Point(20, 20), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 1)
-    //         cv::putText(this->img, "s_wing_max:" + std::to_string(gp.s_wing_max), cv::Point(20, 45), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "s_wing_max:" + std::to_string(gp.s_wing_max), cv::Point(20, 45), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 2)
-    //         cv::putText(this->img, "wing_ratio_min:" + std::to_string(gp.wing_ratio_min), cv::Point(20, 70), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "wing_ratio_min:" + std::to_string(gp.wing_ratio_min), cv::Point(20, 70), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 3)
-    //         cv::putText(this->img, "wing_ratio_max:" + std::to_string(gp.wing_ratio_max), cv::Point(20, 95), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "wing_ratio_max:" + std::to_string(gp.wing_ratio_max), cv::Point(20, 95), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 4)
-    //         cv::putText(this->img, "s_wing_ratio_min:" + std::to_string(gp.s_wing_ratio_min), cv::Point(20, 120), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "s_wing_ratio_min:" + std::to_string(gp.s_wing_ratio_min), cv::Point(20, 120), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 5)
-    //         cv::putText(this->img, "s_wing_ratio_max:" + std::to_string(gp.s_wing_ratio_max), cv::Point(20, 145), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "s_wing_ratio_max:" + std::to_string(gp.s_wing_ratio_max), cv::Point(20, 145), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (tag == 1)
-    //     {
-    //         if (row == 0)
-    //             gp.s_wing_min += 10;
-    //         if (row == 1)
-    //             gp.s_wing_max += 10;
-    //         if (row == 2)
-    //             gp.wing_ratio_min += 0.01;
-    //         if (row == 3)
-    //             gp.wing_ratio_max += 0.01;
-    //         if (row == 4)
-    //             gp.s_wing_ratio_min += 0.01;
-    //         if (row == 5)
-    //             gp.s_wing_ratio_max += 0.01;
-    //     }
-    //     else if (tag == 2)
-    //     {
-    //         if (row == 0)
-    //             gp.s_wing_min += 100;
-    //         if (row == 1)
-    //             gp.s_wing_max += 100;
-    //         if (row == 2)
-    //             gp.wing_ratio_min += 0.1;
-    //         if (row == 3)
-    //             gp.wing_ratio_max += 0.1;
-    //         if (row == 4)
-    //             gp.s_wing_ratio_min += 0.1;
-    //         if (row == 5)
-    //             gp.s_wing_ratio_max += 0.1;
-    //     }
-    //     if (tag == 3)
-    //     {
-    //         if (row == 0)
-    //             gp.s_wing_min -= 10;
-    //         if (row == 1)
-    //             gp.s_wing_max -= 10;
-    //         if (row == 2)
-    //             gp.wing_ratio_min -= 0.01;
-    //         if (row == 3)
-    //             gp.wing_ratio_max -= 0.01;
-    //         if (row == 4)
-    //             gp.s_wing_ratio_min -= 0.01;
-    //         if (row == 5)
-    //             gp.s_wing_ratio_max -= 0.01;
-    //     }
-    //     else if (tag == 4)
-    //     {
-    //         if (row == 0)
-    //             gp.s_wing_min -= 100;
-    //         if (row == 1)
-    //             gp.s_wing_max -= 100;
-    //         if (row == 2)
-    //             gp.wing_ratio_min -= 0.1;
-    //         if (row == 3)
-    //             gp.wing_ratio_max -= 0.1;
-    //         if (row == 4)
-    //             gp.s_wing_ratio_min -= 0.1;
-    //         if (row == 5)
-    //             gp.s_wing_ratio_max -= 0.1;
-    //     }
-    // }
-    // else if (page == 4)
-    // {
-    //     if (row == 0)
-    //         cv::putText(this->img, "s_winghat_min:" + std::to_string(gp.s_winghat_min), cv::Point(20, 20), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "s_winghat_min:" + std::to_string(gp.s_winghat_min), cv::Point(20, 20), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 1)
-    //         cv::putText(this->img, "s_winghat_max:" + std::to_string(gp.s_winghat_max), cv::Point(20, 45), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "s_winghat_max:" + std::to_string(gp.s_winghat_max), cv::Point(20, 45), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 2)
-    //         cv::putText(this->img, "winghat_ratio_min:" + std::to_string(gp.winghat_ratio_min), cv::Point(20, 70), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "winghat_ratio_min:" + std::to_string(gp.winghat_ratio_min), cv::Point(20, 70), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 3)
-    //         cv::putText(this->img, "winghat_ratio_max:" + std::to_string(gp.winghat_ratio_max), cv::Point(20, 95), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "winghat_ratio_max:" + std::to_string(gp.winghat_ratio_max), cv::Point(20, 95), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 4)
-    //         cv::putText(this->img, "s_winghat_ratio_min:" + std::to_string(gp.s_winghat_ratio_min), cv::Point(20, 120), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "s_winghat_ratio_min:" + std::to_string(gp.s_winghat_ratio_min), cv::Point(20, 120), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 5)
-    //         cv::putText(this->img, "s_winghat_ratio_max:" + std::to_string(gp.s_winghat_ratio_max), cv::Point(20, 145), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "s_winghat_ratio_max:" + std::to_string(gp.s_winghat_ratio_max), cv::Point(20, 145), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (tag == 1)
-    //     {
-    //         if (row == 0)
-    //             gp.s_winghat_min += 10;
-    //         if (row == 1)
-    //             gp.s_winghat_max += 10;
-    //         if (row == 2)
-    //             gp.winghat_ratio_min += 0.01;
-    //         if (row == 3)
-    //             gp.winghat_ratio_max += 0.01;
-    //         if (row == 4)
-    //             gp.s_winghat_ratio_min += 0.01;
-    //         if (row == 5)
-    //             gp.s_winghat_ratio_max += 0.01;
-    //     }
-    //     else if (tag == 2)
-    //     {
-    //         if (row == 0)
-    //             gp.s_winghat_min += 100;
-    //         if (row == 1)
-    //             gp.s_winghat_max += 100;
-    //         if (row == 2)
-    //             gp.winghat_ratio_min += 0.1;
-    //         if (row == 3)
-    //             gp.winghat_ratio_max += 0.1;
-    //         if (row == 4)
-    //             gp.s_winghat_ratio_min += 0.1;
-    //         if (row == 5)
-    //             gp.s_winghat_ratio_max += 0.1;
-    //     }
-    //     if (tag == 3)
-    //     {
-    //         if (row == 0)
-    //             gp.s_winghat_min -= 10;
-    //         if (row == 1)
-    //             gp.s_winghat_max -= 10;
-    //         if (row == 2)
-    //             gp.winghat_ratio_min -= 0.01;
-    //         if (row == 3)
-    //             gp.winghat_ratio_max -= 0.01;
-    //         if (row == 4)
-    //             gp.s_winghat_ratio_min -= 0.01;
-    //         if (row == 5)
-    //             gp.s_winghat_ratio_max -= 0.01;
-    //     }
-    //     else if (tag == 4)
-    //     {
-    //         if (row == 0)
-    //             gp.s_winghat_min -= 100;
-    //         if (row == 1)
-    //             gp.s_winghat_max -= 100;
-    //         if (row == 2)
-    //             gp.winghat_ratio_min -= 0.1;
-    //         if (row == 3)
-    //             gp.winghat_ratio_max -= 0.1;
-    //         if (row == 4)
-    //             gp.s_winghat_ratio_min -= 0.1;
-    //         if (row == 5)
-    //             gp.s_winghat_ratio_max -= 0.1;
-    //     }
-    // }
-    // else if (page == 5)
-    // {
-    //     if (row == 0)
-    //         cv::putText(this->img, "dialte1:" + std::to_string(gp.dialte1), cv::Point(20, 20), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "dialte1:" + std::to_string(gp.dialte1), cv::Point(20, 20), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 1)
-    //         cv::putText(this->img, "dialte2:" + std::to_string(gp.dialte2), cv::Point(20, 45), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "dialte2:" + std::to_string(gp.dialte2), cv::Point(20, 45), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 2)
-    //         cv::putText(this->img, "dialte3:" + std::to_string(gp.dialte3), cv::Point(20, 70), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "dialte3:" + std::to_string(gp.dialte3), cv::Point(20, 70), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 3)
-    //         cv::putText(this->img, "switch_UI_contours:" + std::to_string(gp.switch_UI_contours), cv::Point(20, 95), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "switch_UI_contours:" + std::to_string(gp.switch_UI_contours), cv::Point(20, 95), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 4)
-    //         cv::putText(this->img, "switch_UI_areas:" + std::to_string(gp.switch_UI_areas), cv::Point(20, 120), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "switch_UI_areas:" + std::to_string(gp.switch_UI_areas), cv::Point(20, 120), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (row == 5)
-    //         cv::putText(this->img, "switch_UI:" + std::to_string(gp.switch_UI), cv::Point(20, 145), 2, 0.5, cv::Scalar(255, 0, 0));
-    //     else
-    //         cv::putText(this->img, "switch_UI:" + std::to_string(gp.switch_UI), cv::Point(20, 145), 2, 0.5, cv::Scalar(0, 0, 255));
-    //     if (tag == 1)
-    //     {
-    //         if (row == 0)
-    //             gp.dialte1 += 1;
-    //         if (row == 1)
-    //             gp.dialte2 += 1;
-    //         if (row == 2)
-    //             gp.dialte3 += 1;
-    //         if (row == 3)
-    //             gp.switch_UI_contours = 1 - gp.switch_UI_contours;
-    //         if (row == 4)
-    //             gp.switch_UI_areas = 1 - gp.switch_UI_areas;
-    //         if (row == 5)
-    //             gp.switch_UI = 1 - gp.switch_UI;
-    //     }
-    //     if (tag == 3)
-    //     {
-    //         if (row == 0 && gp.dialte1 > 1)
-    //             gp.dialte1 -= 1;
-    //         if (row == 1 && gp.dialte2 > 1)
-    //             gp.dialte2 -= 1;
-    //         if (row == 2 && gp.dialte3 > 1)
-    //             gp.dialte3 -= 1;
-    //         if (row == 3)
-    //             gp.switch_UI_contours = 1 - gp.switch_UI_contours;
-    //         if (row == 4)
-    //             gp.switch_UI_areas = 1 - gp.switch_UI_areas;
-    //         if (row == 5)
-    //             gp.switch_UI = 1 - gp.switch_UI;
-    //     }
-    // }
-    // else 
-    if (page == 6)
-    {
-        if (row == 0)
-            cv::putText(this->img, "armor_exp_time:" + std::to_string(gp.armor_exp_time), cv::Point(20, 20), 2, 0.5, cv::Scalar(255, 0, 0));
-        else
-            cv::putText(this->img, "armor_exp_time:" + std::to_string(gp.armor_exp_time), cv::Point(20, 20), 2, 0.5, cv::Scalar(0, 0, 255));
-        if (row == 1)
-            cv::putText(this->img, "energy_exp_time:" + std::to_string(gp.energy_exp_time), cv::Point(20, 45), 2, 0.5, cv::Scalar(255, 0, 0));
-        else
-            cv::putText(this->img, "energy_exp_time:" + std::to_string(gp.energy_exp_time), cv::Point(20, 45), 2, 0.5, cv::Scalar(0, 0, 255));
-        if (tag == 1)
-        {
-            if (row == 0)
-                gp.armor_exp_time += 100;
-            if (row == 1)
-                gp.energy_exp_time += 100;
-            if (row == 2)
-                gp.fake_yaw += 0.01;
-            if (row == 3)
-                gp.armorStat += 1;
-            if (row == 4)
-                gp.attack_mode = 1 - gp.attack_mode;
-            if (row == 5)
-                gp.color = 1 - gp.color;
+    cv::putText(this->img, "Page:" + std::to_string(page) + "  Left:A  Right:D", cv::Point(1200, 20), 2, 0.5, cv::Scalar(255, 255, 0));
+    cv::putText(this->img, "Row:" + std::to_string(row) + "  Up:W  Down:S", cv::Point(1200, 45), 2, 0.5, cv::Scalar(255, 255, 0));
+    
+    int st = (page - 1) * max_row;
+    int ed = std::min(st + max_row, (int)param_list.size());
+    for (int i = st; i < ed; i++){
+        auto &param = param_list[i];
+        int id = i - st + 1;
+        std::visit([param, id, this](auto &value) {
+            if (id == row){
+                cv::putText(this->img, param.name + ": " + std::to_string(*value), cv::Point(20, 20 + 30 * (id - 1)), 2, 0.8, cv::Scalar(255, 0, 0));
+                if (tag == 1){
+                    if (param.type == '+')
+                        *value += param.delta_small;
+                    if (param.type == '*')
+                        *value *= param.delta_small;
+                }
+                if (tag == 2){
+                    if (param.type == '+')
+                        *value += param.delta_big;
+                    if (param.type == '*')
+                        *value *= param.delta_big;
+                }
+                if (tag == 3){
+                    if (param.type == '+')
+                        *value -= param.delta_small;
+                    if (param.type == '*')
+                        *value /= param.delta_small;
+                }
+                if (tag == 4){
+                    if (param.type == '+')
+                        *value -= param.delta_big;
+                    if (param.type == '*')
+                        *value /= param.delta_big;
+                }
+            }else{
+                cv::putText(this->img, param.name + ": " + std::to_string(*value), cv::Point(20, 20 + 30 * (id - 1)), 2, 0.8, cv::Scalar(0, 0, 255));
+            } 
+        }, param.param);
+    }
+
+    if (key == 'm' || key == 'M'){   //保存参数
+        cv::Mat img = cv::Mat::zeros(50, 400, CV_8UC3);
+        cv::putText(img, "Save? Press M to confirm", cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255, 255, 255), 2, cv::LINE_AA);
+        cv::imshow("Save?", img);
+        key = cv::waitKey();
+        if(key == 'm' || key == 'M'){
+            gp->saveGlobalParam();
+            printf("Save success\n");
         }
-        else if (tag == 2)
-        {
-            if (row == 0)
-                gp.armor_exp_time += 1000;
-            if (row == 1)
-                gp.energy_exp_time += 1000;
-            if (row == 2)
-                gp.fake_yaw += 0.1;
-            if (row == 3)
-                gp.armorStat += 2;
-            if (row == 4)
-                gp.attack_mode = 1 - gp.attack_mode;
-            if (row == 5)
-                gp.color = 1 - gp.color;
+        cv::destroyWindow("Save?");
+    }
+    if (key == '\n' || key == '\r'){    //修改参数
+        std::string input;
+        while(true){
+            cv::Mat img = cv::Mat::zeros(50, 400, CV_8UC3);
+            cv::putText(img, input, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255, 255, 255), 2, cv::LINE_AA);
+            cv::imshow("input", img);
+            key = cv::waitKey();
+            if(key == '\n' || key == '\r'){
+                break;
+            }
+            if((key >= '0' && key <= '9') || key == '.' || key == '-'){
+                input += (char)key;
+            }
+            if(key == 8){
+                if (input.empty()) continue;
+                input.pop_back();
+            }
         }
-        if (tag == 3)
-        {
-            if (row == 0)
-                gp.armor_exp_time -= 100;
-            if (row == 1)
-                gp.energy_exp_time -= 100;
-            if (row == 2)
-                gp.fake_yaw -= 0.01;
-            if (row == 3)
-                gp.armorStat -= 1;
-            if (row == 4)
-                gp.attack_mode = 1 - gp.attack_mode;
-            if (row == 5)
-                gp.color = 1 - gp.color;
+        try{
+            double value = std::stod(input);
+            auto &param = param_list[(page - 1) * max_row + row - 1];
+            std::visit([&value](auto &param_value) {
+                *param_value = value;
+            }, param.param);
+        }catch(...){
+            printf("Invalid input\n");
         }
-        else if (tag == 4)
-        {
-            if (row == 0)
-                gp.armor_exp_time -= 1000;
-            if (row == 1)
-                gp.energy_exp_time -= 1000;
-            if (row == 2)
-                gp.fake_yaw -= 0.1;
-            if (row == 3)
-                gp.armorStat -= 2;
-            if (row == 4)
-                gp.attack_mode = 1 - gp.attack_mode;
-            if (row == 5)
-                gp.color = 1 - gp.color;
-        }
+        cv::destroyWindow("input");
     }
 }

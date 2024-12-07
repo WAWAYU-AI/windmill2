@@ -42,11 +42,12 @@ class Detector{
 
         Detector(GlobalParam &gp);
 
-        std::vector<UnsolvedArmor> detect(const cv::Mat &input, const int color);
+        std::vector<UnsolvedArmor> detect(cv::Mat &input, const int color);
 
         cv::Mat preprocessImage(const cv::Mat &input);
         std::vector<Light> findLights(const cv::Mat &rbg_img, const cv::Mat &binary_img);
         std::vector<UnsolvedArmor> matchLights(const std::vector<Light> &lights);
+        bool refine_corner(Light &tar, cv::Mat &src);
 
         // For debug usage
         cv::Mat getAllNumbersImage();
@@ -64,6 +65,7 @@ class Detector{
         cv::Mat binary_img;
 
     private:
+        GlobalParam *gp;
         bool isLight(const Light &possible_light);
         bool containLight(
             const Light &light_1, const Light &light_2, const std::vector<Light> &lights);

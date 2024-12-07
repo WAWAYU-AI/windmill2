@@ -75,6 +75,8 @@ void GlobalParam::initGlobalParam(const int color)
     fs["num_threshold"] >> num_threshold;
     fs["blue_threshold"] >> blue_threshold;
     fs["red_threshold"] >> red_threshold;
+    fs["grad_max"] >> grad_max;
+    fs["grad_min"] >> grad_min;
     fs.release();
     
     // LOG_IF(INFO, switch_INFO) << "initGlobalParam Successful";
@@ -149,6 +151,8 @@ void GlobalParam::saveGlobalParam()
     fs << "num_threshold" << num_threshold;
     fs << "blue_threshold" << blue_threshold;
     fs << "red_threshold" << red_threshold;
+    fs << "grad_max" << grad_max;
+    fs << "grad_min" << grad_min;
     fs.release();
 
     // LOG_IF(INFO, switch_INFO) << "saveGlobalParam Successful";

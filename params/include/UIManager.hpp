@@ -12,8 +12,9 @@
 #include <opencv2/opencv.hpp>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <string>
 #include <opencv2/imgproc/types_c.h>
+#include <variant>
 
 class UIManager
 {
@@ -22,13 +23,26 @@ private:
     int row;
     int page;
     int tag;
+    int max_row;
+    int max_page;
+    GlobalParam *gp;
+    struct UIElement
+    {
+        using Ptr = std::variant<int*, float*, double*>;
+        Ptr param;
+        std::string name;
+        char type;
+        double delta_small;
+        double delta_big;
+    };
+    std::vector<UIElement> param_list;
 public:
     /**
      * @brief WMIdentify的构造函数，初始化一些参数
      *
      * @param gp 全局参数结构体，通过引用输入
      */
-    UIManager();
+    UIManager(GlobalParam &gp, int max_row = 5);
     /**
      * @brief WMIdentify的析构函数，一般来说程序会自行销毁那些需要销毁的东西
      *
@@ -48,7 +62,7 @@ public:
      * @param row 当前的UI的行数
      * @param tag 当前进行的操作，0为不操作，1为增加，2为大量增加，3为减少，4为大量减少
      */
-    void windowsManager(GlobalParam &, int key,int &debug_t);
+    void windowsManager(int key,int &debug_t);
 };
 
 #endif // __UIMANAGER_HPP

@@ -10,6 +10,7 @@ const double INF = 1e9;
 class KuhnMunkres{
 public:
     void solve(const vector<vector<double>>& W, vector<int>& matchX_, vector<int>& matchY_, double threshold = INF){
+        if(W.empty()) return;
         n = W.size();
         m = W[0].size();
         N = max(n, m);

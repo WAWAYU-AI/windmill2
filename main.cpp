@@ -19,14 +19,14 @@
 #include <unistd.h>
 #include <filesystem>
 
-#define RESIZE 0.5
+#define RESIZE 1
 
 // 全局变量参数，这个参数存储着全部的需要的参数
 GlobalParam gp;
 // 通信类
 MessageManager MManager(gp);
-// 相机类
 #ifndef VIRTUALGRAB
+// 相机类
 Camera camera(gp);
 #endif
 
@@ -38,14 +38,11 @@ struct DataBuffer{
     double time_stamp; // 时间戳
 };
 DataBuffer buffers[2]; // 两个缓冲区
-int current_buffer = 0; // 当前使用的缓冲区
 
 // 定义线程锁和条件变量
 pthread_mutex_t Mutex= PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t Cond = PTHREAD_COND_INITIALIZER;
+pthread_barrier_t Barrier;
 
-// 进行完的线程的个数，在等于2的时候重置为0，这里用1是为了先单独运行一遍读线程
-int pthread_count = 1;
 // 定义退出标志位
 bool exit_flag = false;
 
@@ -59,7 +56,7 @@ int main(int argc, char **argv)
     // 初始化Glog并设置部分标志位
     google::InitGoogleLogging(argv[0]);
     // 设置Glog输出的log文件写在address中log_address对应的地址下
-    FLAGS_log_dir = "./log";
+    FLAGS_log_dir = "../log";
     printf("welcome\n");
     // 实例化通信串口类
     SerialPort *serialPort = new SerialPort(argv[1]);
@@ -76,9 +73,7 @@ int main(int argc, char **argv)
 #endif // NOPORT
 
     // 初始化线程锁和条件变量
-    pthread_mutex_init(&Mutex, NULL);
-    pthread_cond_init(&Cond, NULL);
-
+    pthread_barrier_init(&Barrier, nullptr, 2);
     // 输出日志，开始初始化
     pthread_t readThread;
     pthread_t operationThread;
@@ -96,21 +91,25 @@ int main(int argc, char **argv)
     
     // 销毁线程锁和条件变量
     pthread_mutex_destroy(&Mutex);
-    pthread_cond_destroy(&Cond);
+    pthread_barrier_destroy(&Barrier);
     
     return 0;
 }
 
 void *ReadFunction(void *arg) // 读线程
 {
+    int current_buffer = 0; // 当前使用的缓冲区
+    int cnt = 0;
 #ifndef VIRTUALGRAB
     camera.init();
 #endif 
     // 传入的参数赋给串口，以获得串口数据
     SerialPort *serialPort = (SerialPort *)arg;
     while (1)
-    {
+    {   
         pthread_mutex_lock(&Mutex);
+        // usleep(1000);
+        // printf("read thread is running %d %d\n", ++cnt, current_buffer);
         MManager.read(buffers[current_buffer].translator, *serialPort);
         if (buffers[current_buffer].translator.message.status % 5 != 0)
         {
@@ -141,22 +140,14 @@ void *ReadFunction(void *arg) // 读线程
 #else
         MManager.getFrame(buffers[current_buffer].pic, buffers[current_buffer].translator);
 #endif
+        // usleep(200 * 1000);
+        pthread_mutex_unlock(&Mutex);
         // 切换缓冲区
         current_buffer = (current_buffer + 1) % 2;
-        pthread_mutex_unlock(&Mutex);
         
-        pthread_mutex_lock(&Mutex);
-        pthread_count++;
-        if(pthread_count == 2)
-        {
-            pthread_count = 0;
-            pthread_cond_broadcast(&Cond);
-        }
-        else
-        {
-            pthread_cond_wait(&Cond,&Mutex);
-        }
-        pthread_mutex_unlock(&Mutex);
+        
+        pthread_barrier_wait(&Barrier);
+        // printf("read thread is end %d %d\n", cnt, current_buffer);
     }
     return NULL;
 }
@@ -167,7 +158,7 @@ void *OperationFunction(void *arg)
     // 实例化自瞄类
     AimAuto aim(&gp);
     // 实例化UI类
-    UIManager UI;
+    UIManager UI(gp);
     cv::Mat pic;
     Translator translator;
     double dt = 0;
@@ -190,10 +181,13 @@ void *OperationFunction(void *arg)
 #endif // DEBUGMODE
     //========================//
     uint8_t error_times{0};
-    int processing_buffer = 0; // 当前处理的缓冲区
+    int processing_buffer = 1; // 当前处理的缓冲区
+    int cnt = 0;
+    // cv::waitKey(200);
     while (1)
     {
-        pthread_mutex_lock(&Mutex);
+        // usleep(1000);
+        // printf("operation thread is running %d  %d\n", ++cnt, processing_buffer);
 #ifndef NOPORT
         translator = buffers[processing_buffer].translator;
 #else
@@ -220,11 +214,11 @@ void *OperationFunction(void *arg)
         last_time_stamp = buffers[processing_buffer].time_stamp;
 
         processing_buffer = (processing_buffer + 1) % 2;
-        pthread_mutex_unlock(&Mutex);
         // 如果图片为空，不执行
-        if (pic.empty() == 1){
-            printf("pic is empty\n");
-            exit(1);
+        if (pic.empty()){
+            pic = cv::Mat(gp.height, gp.width, CV_8UC3, cv::Scalar(0, 0, 0));
+            // printf("pic is empty\n");
+            // exit(1);
         }
 #ifdef RECORDVIDEO // 如果开启录制视频，使用MManager类进行录制
         MManager.recordFrame(pic);
@@ -236,14 +230,15 @@ void *OperationFunction(void *arg)
             double time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
             translator.message.latency = (time_stamp - last_time_stamp) * 1000;
             MManager.write(translator, *serialPort);
-#ifdef DEBUGMODE
-            drawStat(points3d, times, translator);
+// #ifdef DEBUGMODE
+            // drawStat(points3d, times, translator);
             UI.receive_pic(pic);
-            UI.windowsManager(gp, key, debug_t);
+            UI.windowsManager(key, debug_t);
             cv::Mat tmp;
             cv::resize(pic, tmp, cv::Size((int)pic.size[1] * RESIZE, (int)pic.size[0] * RESIZE), cv::INTER_LINEAR);
             cv::imshow("aimauto__", tmp);
-#endif
+            // usleep(200 * 1000);
+// #endif
 
 #ifndef DEBUGMODE
 #ifdef SSH
@@ -264,7 +259,7 @@ void *OperationFunction(void *arg)
             key = cv::waitKey(debug_t);
             if (key == ' ')
                 key = cv::waitKey(0);
-            if (key == 27)
+            if (key == 27 || key == 'q')
                 return nullptr;
 #endif // DEBUGMODE
         }
@@ -287,18 +282,8 @@ void *OperationFunction(void *arg)
             fps_time_stamp = now_time_stamp;
         }
 #endif
-        pthread_mutex_lock(&Mutex);
-        pthread_count++;
-        if(pthread_count == 2)
-        {
-            pthread_count = 0;
-            pthread_cond_broadcast(&Cond);
-        }
-        else
-        {
-            pthread_cond_wait(&Cond,&Mutex);
-        }
-        pthread_mutex_unlock(&Mutex);
+        pthread_barrier_wait(&Barrier);
+        // printf("operation thread is end %d  %d\n", cnt, processing_buffer);
     }
     return NULL;
 }

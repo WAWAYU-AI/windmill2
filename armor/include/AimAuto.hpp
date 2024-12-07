@@ -1,8 +1,5 @@
 #ifndef AIMAUTO
 #define AIMAUTO
-// #include "PredictShow.hpp"
-// #include "fftw_omega.hpp"
-// #include "gaoning.hpp"
 #include "globalParam.hpp"
 #include "globalText.hpp"
 #include "opencv2/core/mat.hpp"
@@ -27,7 +24,7 @@ private:
     Detector *detector;
     Tracker *tracker;
     void pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armor &tar, int number);
-
+    void draw_armor_back(cv::Mat &src, Armor &armor, int number);
 public:
     AimAuto(GlobalParam *gp);
     ~AimAuto();

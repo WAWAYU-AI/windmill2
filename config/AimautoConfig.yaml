@@ -1,26 +1,12 @@
 %YAML:1.0
 ---
-# model1
-cost_threshold: 1000
-max_lost_frame: 10
-# 卡尔曼滤波相关参数
-s2qxyz: 250.0           # 位置转移噪声
-s2qyaw: 90.0            # 角度转移噪声
-s2qr: 250.0             # 半径转移噪声
-r_xy_factor: 0.032
-r_z: 0.0000001
-r_yaw: 0.016
-s2q0 : 1000
-r_initial: 450
-
-# model2
-
-# max_match_distance_: 0.5
-# max_match_yaw_diff_: 0.5
-
-# s2qxyz_: 225.0
-# s2qyaw_: 50.0
-# s2qr_: 250.0
-# r_xyz_factor_: 0.022
-# r_yaw_: 0.025
-
+cost_threshold: 1000.
+max_lost_frame: 10.
+s2qxyz: 250.
+s2qyaw: 90.
+s2qr: 250.
+r_xy_factor: 3.2000000000000001e-02
+r_z: 9.9999999999999995e-08
+r_yaw: 1.6000000000000000e-02
+s2p0: 1000
+r_initial: 450.
