@@ -128,6 +128,18 @@ void *ReadFunction(void *arg) // 读线程
 #endif
             gp.attack_mode = ARMOR;
         }
+#ifndef NOPORT
+        MManager.LogMessage(buffers[current_buffer].translator, gp);
+        // translator.message.status =3;
+        if (buffers[current_buffer].translator.message.status / 5 != gp.color)
+        {
+            gp.initGlobalParam(buffers[current_buffer].translator.message.status / 5);
+        }
+        if (buffers[current_buffer].translator.message.armor_flag != gp.armorStat)
+        {
+            MManager.ChangeBigArmor(buffers[current_buffer].translator);
+        }
+#endif// NOPORT
 
         buffers[current_buffer].time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
 
@@ -195,18 +207,6 @@ void *OperationFunction(void *arg)
 #else
         MManager.FakeMessage(translator);
 #endif // NOPORT
-#ifndef NOPORT
-        MManager.LogMessage(translator, gp);
-        // translator.message.status =3;
-        if (translator.message.status / 5 != gp.color)
-        {
-            initGlobalParam(gp, addr, translator.message.status / 5);
-        }
-        if (translator.message.armor_flag != gp.armorStat)
-        {
-            MManager.ChangeBigArmor(translator);
-        }
-#endif// NOPORT
         pic = buffers[processing_buffer].pic.clone();
 
         buffers[processing_buffer].data_ready = false;
