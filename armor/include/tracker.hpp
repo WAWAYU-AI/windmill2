@@ -22,6 +22,7 @@ class Tracker{
 public:
     Tracker(GlobalParam &gp);
     void track(std::vector<Armor> &armors_curr, Translator &ts, double dt);
+    void draw(std::vector<Armor> &armors_curr);
     
 private:
 

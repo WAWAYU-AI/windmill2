@@ -57,17 +57,22 @@ void *OperationFunction(void *arg);
 int main(int argc, char **argv)
 {
     // 初始化Glog并设置部分标志位
-    google::InitGoogleLogging(argv[0]);
+    // google::InitGoogleLogging(argv[0]);
     // 设置Glog输出的log文件写在address中log_address对应的地址下
-    FLAGS_log_dir = "../log";
+    // FLAGS_log_dir = "../log";
     printf("welcome\n");
     // 实例化通信串口类
+    printf("222\n");
     SerialPort *serialPort = new SerialPort(argv[1]);
+    printf("333\n");
     // 设置通信串口对象初始值
     serialPort->InitSerialPort(int(*argv[2] - '0'), 8, 1, 'N');
+    printf("555\n");
 #ifndef NOPORT
     Translator temp_translator;
+    printf("666\n");
     MManager.read(temp_translator, *serialPort);
+    printf("555\n");
     // 通过电控发来的标志位是0～4还是5～9来确定是红方还是蓝方，其中0～4是红方，5～9是蓝方
     MManager.initParam(temp_translator.message.status / 5 == 0 ? RED : BLUE);
 #else
@@ -204,6 +209,8 @@ void *OperationFunction(void *arg)
         // printf("operation thread is running %d  %d\n", ++cnt, processing_buffer);
 #ifndef NOPORT
         translator = buffers[processing_buffer].translator;
+        // translator.message.pitch = 0;
+        // translator.message.yaw = 0;
 #else
         MManager.FakeMessage(translator);
 #endif // NOPORT
@@ -262,11 +269,11 @@ void *OperationFunction(void *arg)
             if (key == ' ')
                 key = cv::waitKey(0);
             if (key == 27 || key == 'q')
-                return nullptr;
+                exit(0);
 #endif // DEBUGMODE
         }
         if (translator.message.status == 99)
-            return nullptr;
+            exit(0);
 
 #ifndef NOPORT
 #ifdef SSH

@@ -28,6 +28,7 @@ inline double cost(Armor a, Armor b){
     Eigen::Vector3d p2 = b.position;
     ans = sqrt(pow(p1(0) - p2(0), 2) + pow(p1(1) - p2(1), 2) + pow(p1(2) - p2(2), 2));
     ans += 2500 * pow(dyaw(a.yaw, b.yaw), 2);
+    ans += 10 * abs(p1(2) - p2(2));
     return ans;
 }
 
@@ -116,6 +117,56 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
     }else{
         ts.message.crc = 0;
     }
+}
+
+void Tracker::draw(std::vector<Armor> &armors_curr){
+    cv::Mat img(1000, 1200, CV_8UC3, cv::Scalar(255, 255, 255));
+    for (auto z : z_vector_list){
+        Armor armor;
+        armor.position = z.segment(0,3), armor.yaw = z(3);
+        cv::Point a(armor.position(0) - 67.5 * sin(armor.yaw), armor.position(1) + 67.5 * cos(armor.yaw));
+        cv::Point b(armor.position(0) + 67.5 * sin(armor.yaw), armor.position(1) - 67.5 * cos(armor.yaw));
+        cv::Point c(armor.position(0) + 30 * cos(armor.yaw), armor.position(1) + 30 * sin(armor.yaw));
+        cv::circle(img, cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), 3, cv::Scalar(0, 0, 255), -1);
+        cv::line(img, cv::Point(a.y/5 + 600, (a.x-1000)/5), cv::Point(b.y/5 + 600, (b.x-1000)/5), cv::Scalar(0, 0 ,255), 2);
+        cv::line(img, cv::Point(c.y/5 + 600, (c.x-1000)/5), cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), cv::Scalar(0, 0 ,255), 2);
+        armor.position = z.segment(4,3), armor.yaw = z(7);
+        {
+        cv::Point a(armor.position(0) - 67.5 * sin(armor.yaw), armor.position(1) + 67.5 * cos(armor.yaw));
+        cv::Point b(armor.position(0) + 67.5 * sin(armor.yaw), armor.position(1) - 67.5 * cos(armor.yaw));
+        cv::Point c(armor.position(0) + 30 * cos(armor.yaw), armor.position(1) + 30 * sin(armor.yaw));
+        cv::circle(img, cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), 3, cv::Scalar(0, 0, 255), -1);
+        cv::line(img, cv::Point(a.y/5 + 600, (a.x-1000)/5), cv::Point(b.y/5 + 600, (b.x-1000)/5), cv::Scalar(0, 0 ,255), 2);
+        cv::line(img, cv::Point(c.y/5 + 600, (c.x-1000)/5), cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), cv::Scalar(0, 0 ,255), 2);
+        }
+        {
+        armor.position = z.segment(8,3), armor.yaw = z(11);
+        cv::Point a(armor.position(0) - 67.5 * sin(armor.yaw), armor.position(1) + 67.5 * cos(armor.yaw));
+        cv::Point b(armor.position(0) + 67.5 * sin(armor.yaw), armor.position(1) - 67.5 * cos(armor.yaw));
+        cv::Point c(armor.position(0) + 30 * cos(armor.yaw), armor.position(1) + 30 * sin(armor.yaw));
+        cv::circle(img, cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), 3, cv::Scalar(0, 0, 255), -1);
+        cv::line(img, cv::Point(a.y/5 + 600, (a.x-1000)/5), cv::Point(b.y/5 + 600, (b.x-1000)/5), cv::Scalar(0, 0 ,255), 2);
+        cv::line(img, cv::Point(c.y/5 + 600, (c.x-1000)/5), cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), cv::Scalar(0, 0 ,255), 2);
+        }
+        {
+        armor.position = z.segment(12,3), armor.yaw = z(15);
+        cv::Point a(armor.position(0) - 67.5 * sin(armor.yaw), armor.position(1) + 67.5 * cos(armor.yaw));
+        cv::Point b(armor.position(0) + 67.5 * sin(armor.yaw), armor.position(1) - 67.5 * cos(armor.yaw));
+        cv::Point c(armor.position(0) + 30 * cos(armor.yaw), armor.position(1) + 30 * sin(armor.yaw));
+        cv::circle(img, cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), 3, cv::Scalar(0, 0, 255), -1);
+        cv::line(img, cv::Point(a.y/5 + 600, (a.x-1000)/5), cv::Point(b.y/5 + 600, (b.x-1000)/5), cv::Scalar(0, 0 ,255), 2);
+        cv::line(img, cv::Point(c.y/5 + 600, (c.x-1000)/5), cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), cv::Scalar(0, 0 ,255), 2);
+        }
+    }
+    for (auto armor : armors_pred){
+        cv::Point a(armor.position(0) - 67.5 * sin(armor.yaw), armor.position(1) + 67.5 * cos(armor.yaw));
+        cv::Point b(armor.position(0) + 67.5 * sin(armor.yaw), armor.position(1) - 67.5 * cos(armor.yaw));
+        cv::Point c(armor.position(0) + 30 * cos(armor.yaw), armor.position(1) + 30 * sin(armor.yaw));
+        cv::circle(img, cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), 3, cv::Scalar(0, 255, 0), -1);
+        cv::line(img, cv::Point(a.y/5 + 600, (a.x-1000)/5), cv::Point(b.y/5 + 600, (b.x-1000)/5), cv::Scalar(0, 255 ,0), 2);
+        cv::line(img, cv::Point(c.y/5 + 600, (c.x-1000)/5), cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), cv::Scalar(0, 255 ,0), 2);
+    }
+    cv::imshow("track",img);
 }
 
 void Tracker::refine_zVector(int ekf_id){
@@ -256,7 +307,7 @@ Tracker::Tracker(GlobalParam &gp){
     j_h = [](const Eigen::VectorXd &x)
     {
         Eigen::MatrixXd h(16, 11);
-        double yaw = x(6), r1 = x(7), r2 = x(8);
+        double yaw = x(9), r1 = x(7), r2 = x(8);
         // clang-format off
         //    xc   vx   yc   vy   z1   z2   vz   r1              r2                  yaw                vyaw
         h <<  1,   0,   0,   0,   0,   0,   0,   -cos(yaw),      0,                  r1*sin(yaw),           0,

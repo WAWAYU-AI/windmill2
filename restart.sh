@@ -2,7 +2,7 @@
 echo "INFO:Please running this shell in its root path,like ~/infantry_xx,or you will get error in file path initialize"
 # sleep 2
 source /opt/intel/openvino_2021/bin/setupvars.sh
-cd /home/xjturm/DX_aimbot/
+cd /home/xjturm/DX_aimbot/build/
 BaudRate=115200
 while true
 do

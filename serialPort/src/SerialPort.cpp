@@ -20,7 +20,7 @@ SerialPort::SerialPort(char devName[100])
     */
 
     fd = open(devName, O_RDWR | O_NOCTTY | O_NDELAY);
-
+    printf("111\n");
     if (fd < 0)
     {
         fd = -1;
@@ -31,11 +31,14 @@ SerialPort::SerialPort(char devName[100])
         return;
     }
 
+    printf("222\n");
     bzero(&m_Setting, sizeof(m_Setting));
+    printf("222\n");
     /*重新将串口设置为阻塞模式，即执行read函数时，如果没有数据就会阻塞等待，不往下执行，
     如果设置为非阻塞模式为fcntl(fd, F_SETFL,
     O_NDELAY)，此时执行read函数时，如果没有数据， 则返回-1，程序继续往下执行*/
     fcntl(fd, F_SETFL, 0);
+    printf("222\n");
 }
 
 /**

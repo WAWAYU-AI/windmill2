@@ -1,5 +1,5 @@
 %YAML:1.0
 ---
-video: "/home/astin/Robomaster/DX_aimbot/video/v1.avi"
-output: "/home/astin/Robomaster/DX_aimbot/video/"
+video: "../video/v1.avi"
+output: "../video/"
 num: 1

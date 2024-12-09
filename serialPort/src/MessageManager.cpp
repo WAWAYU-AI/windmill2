@@ -41,7 +41,7 @@ MessageManager::MessageManager(GlobalParam &gp)
     this->n_time = 0;
     this->start_time = 0;
     cv::FileStorage fs;
-    fs.open(addr.yaml_address + "Path.yaml", cv::FileStorage::READ);
+    fs.open("../config/Path.yaml", cv::FileStorage::READ);
     std::string video_address;
     fs["video"] >> video_address;
 #ifdef VIRTUALGRAB
@@ -56,7 +56,7 @@ MessageManager::MessageManager(GlobalParam &gp)
     fs["output"] >> output_address;
     fs["num"] >> idx;
     cv::FileStorage record;
-    record.open(addr.yaml_address + "Path.yaml", cv::FileStorage::WRITE);
+    record.open("../config/Path.yaml", cv::FileStorage::WRITE);
     record << "video" << video_address;
     record << "output" << output_address;
     record << "num" << idx + 1;
@@ -216,7 +216,7 @@ void MessageManager::recordFrame(cv::Mat &pic)
         vw->release();
         delete vw;
         cv::FileStorage fs;
-        fs.open(addr.yaml_address + "Path.yaml", cv::FileStorage::READ);
+        fs.open("../config/Path.yaml", cv::FileStorage::READ);
         std::string video_address;
         fs["video"] >> video_address;
         std::string output_address;
@@ -224,7 +224,7 @@ void MessageManager::recordFrame(cv::Mat &pic)
         fs["output"] >> output_address;
         fs["num"] >> idx;
         cv::FileStorage record;
-        record.open(addr.yaml_address + "Path.yaml", cv::FileStorage::WRITE);
+        record.open("../config/Path.yaml", cv::FileStorage::WRITE);
         record << "video" << video_address;
         record << "output" << output_address;
         record << "num" << idx + 1;

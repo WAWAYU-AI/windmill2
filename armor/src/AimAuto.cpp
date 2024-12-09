@@ -19,9 +19,9 @@
 #include <vector>
 
 // 相机到云台转轴的平移向量
-#define VECTOR_X 0.015
+#define VECTOR_X 75
 #define VECTOR_Y 0
-#define VECTOR_Z 0.095
+#define VECTOR_Z 111
 #define DIM_ERROR_DEEP 1.0
 #define V_ZOOM 1.0
 #define VYAW_ZOOM 1.0
@@ -139,11 +139,14 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
     cv::putText(src, "x: " + std::to_string(armor.position(0)), cv::Point(15, 400), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
     cv::putText(src, "y: " + std::to_string(armor.position(1)), cv::Point(15, 450), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
     cv::putText(src, "z: " + std::to_string(armor.position(2)), cv::Point(15, 500), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
+    cv::putText(src, "pitch: " + std::to_string(ts.message.pitch), cv::Point(15, 550), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
+    cv::putText(src, "yaw: " + std::to_string(ts.message.yaw), cv::Point(15, 600), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
 #endif // DEBUGMODE
 
     tracker->track(tar_list, ts, dt);
 
 #ifdef DEBUGMODE
+    tracker -> draw(tar_list);
     if (ts.message.crc){
         cv::putText(src, "latency: " + std::to_string(ts.message.latency), cv::Point(1050, 150), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
         cv::putText(src, "xc: " + std::to_string(ts.message.x_c), cv::Point(1130, 200), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);

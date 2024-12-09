@@ -16,6 +16,11 @@
 #include "opencv2/core.hpp"
 #include <cstdint>
 #include <opencv2/core/types.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/core/mat.hpp>
+#include <opencv2/core/types.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 #pragma pack(1)
 typedef struct
 {
