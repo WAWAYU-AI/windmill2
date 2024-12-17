@@ -66,9 +66,9 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
             }       
         }
         km.solve(w, matchX, matchY, gp->cost_threshold);
-        std::cout << "matchX: ";
+        // std::cout << "matchX: ";
         for (auto &x : matchX){
-            std::cout << x << " ";
+            // std::cout << x << " ";
         }
         std::cout << std::endl;
         for(int i = 0; i < n; i++)
@@ -349,7 +349,7 @@ Tracker::Tracker(GlobalParam &gp){
               0,      0,      q_x_x,  q_x_vx, 0,      0,      0,      0,      0,      0,      0,
               0,      0,      q_x_vx, q_vx_vx,0,      0,      0,      0,      0,      0,      0,
               0,      0,      0,      0,      q_x_x,  0,      q_x_vx, 0,      0,      0,      0,
-              0,      0,      0,      0,      0,      q_vx_vx,q_x_vx, 0,      0,      0,      0,
+              0,      0,      0,      0,      0,      q_x_x,  q_x_vx, 0,      0,      0,      0,
               0,      0,      0,      0,      q_x_vx, q_x_vx, q_vx_vx,0,      0,      0,      0,
               0,      0,      0,      0,      0,      0,      0,      q_r,    0,      0,      0,
               0,      0,      0,      0,      0,      0,      0,      0,      q_r,    0,      0,
