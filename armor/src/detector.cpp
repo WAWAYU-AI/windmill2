@@ -18,6 +18,48 @@
 #include "detector.hpp"
 #include "opencv2/highgui.hpp"
 
+#ifdef APRILTAG
+void Detector::find_apriltag(cv::Mat &src, std::vector<UnsolvedArmor> &armors){
+    //=====================AprilTag识别======================//
+    cv::Mat gray;
+    cv::cvtColor(src, gray, cv::COLOR_BGR2GRAY);
+     cv::convertScaleAbs(gray, gray, 1, 50);
+    // std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+    apriltagDetector -> detect(gray, tags, ids);
+    // std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+    // std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    // std::cout << "AprilTag time: " << time_span.count() << " seconds." << std::endl;
+    // cv::Vec3d rvec, tvec;
+    apriltagDetector -> draw(src, tags, ids);
+    // std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
+    // std::chrono::duration<double> time_span2 = std::chrono::duration_cast<std::chrono::duration<double>>(t3 - t2);
+    // std::cout << "AprilTag draw time: " << time_span2.count() << " seconds." << std::endl;
+    cv::Mat rVec, tVec;
+    tag_list.clear();
+    for (int i = 0; i < tags.size(); i++)
+    {
+        if (ids[i] == 0){
+            apriltagDetector -> solvePnP(tags[i], rVec, tVec);
+            cv::Rodrigues(rVec, rVec);
+            Armor tar;
+            tar.center = cv::Point3f(tVec.at<double>(0), tVec.at<double>(1), tVec.at<double>(2));
+            tar.angle = cv::Point3f(rVec.at<double>(0), rVec.at<double>(1), rVec.at<double>(2));
+            tag_list.emplace_back(tar);
+        }
+    }
+    for (auto &armor : armors){
+        for (int i = 0; i < tags.size(); i++){
+            if (ids[i] != 0) continue;
+            std::vector<cv::Point2d> quad = {armor.left_light.bottom, armor.left_light.top, armor.right_light.top, armor.right_light.bottom};
+            if(cv::pointPolygonTest(quad, tags[i][0], false) > 0){
+                armor.isApriltag = true;
+                break;
+            }
+        }
+    }
+}
+#endif
+
 Detector::Detector(GlobalParam &gp)
 {
     // int binary_thres = binary_threshold;
@@ -68,6 +110,9 @@ Detector::Detector(GlobalParam &gp)
         std::vector<std::string>{"negative"};
     this->classifier =
         std::make_unique<NumberClassifier>(model_path, label_path, num_threshold, ignore_classes);
+#ifdef APRILTAG
+    apriltagDetector = new ApriltagDetector(75, gp.fx, gp.fy, gp.cx, gp.cy, gp.k1, gp.k2, gp.p1, gp.p2, gp.k3); // 初始化apriltag检测器
+#endif
 }
 
 std::vector<UnsolvedArmor> Detector::detect(cv::Mat &input, const int color)
@@ -107,6 +152,9 @@ std::vector<UnsolvedArmor> Detector::detect(cv::Mat &input, const int color)
     if (!armors_.empty())
     {
         classifier->extractNumbers(input, armors_, this->detect_color);
+#ifdef APRILTAG
+        find_apriltag(input, armors_);
+#endif
         classifier->classify(armors_);
     }
     for (auto &armor : armors_){

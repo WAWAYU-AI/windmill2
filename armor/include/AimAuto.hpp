@@ -17,6 +17,11 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/video/video.hpp>
 #include <vector>
+
+#ifdef APRILTAG
+#include "ApriltagDetector.hpp"
+#endif
+
 class AimAuto
 {
 private:

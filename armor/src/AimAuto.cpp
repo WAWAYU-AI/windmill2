@@ -104,6 +104,7 @@ AimAuto::~AimAuto()
     delete detector;
     delete tracker;
 }
+
 void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
 {
     std::vector<Armor> tar_list;
@@ -148,10 +149,39 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
     cv::putText(src, "yaw: " + std::to_string(ts.message.yaw), cv::Point(15, 600), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
 #endif // DEBUGMODE
 
+#ifdef APRILTAG
+    for (auto &tar : detector->tag_list){
+        cv::Mat rvec = (cv::Mat_<double>(3, 1) << tar.angle.x, tar.angle.y, tar.angle.z), rotation_matrix;
+        cv::Rodrigues(rvec, rotation_matrix);
+        double yaw = std::atan2(rotation_matrix.at<double>(0, 2), rotation_matrix.at<double>(2, 2));//储存装甲板信息
+        if (yaw < 0){
+            yaw = - yaw - M_PI;
+        }else{
+            yaw = M_PI - yaw;
+        }
+        Eigen::MatrixXd m_pitch(3, 3);//pitch旋转矩阵
+        Eigen::MatrixXd m_yaw(3, 3);//yaw旋转矩阵
+        ts.message.yaw = fmod(ts.message.yaw, 2 * M_PI);
+        m_yaw << cos(ts.message.yaw), -sin(ts.message.yaw), 0, sin(ts.message.yaw), cos(ts.message.yaw), 0, 0, 0, 1;
+        m_pitch << cos(ts.message.pitch), 0, -sin(ts.message.pitch), 0, 1, 0, sin(ts.message.pitch), 0, cos(ts.message.pitch);
+        Eigen::Vector3d temp;
+        temp = Eigen::Vector3d(tar.center.z + VECTOR_X, -tar.center.x + VECTOR_Y, -tar.center.y + VECTOR_Z);
+        tar.yaw = - ts.message.yaw + yaw;//装甲板yaw
+        Eigen::MatrixXd r_mat = m_yaw * m_pitch;//旋转矩阵
+        tar.position = r_mat * temp;
+        cv::Mat a(3, 3, CV_64F, r_mat.data());
+        cv::Mat b = (cv::Mat_<double>(3, 3) << 0, 0, 1, -1, 0, 0, 0, -1, 0);
+    }
+#endif
+
     tracker->track(tar_list, ts, dt);
 
 #ifdef DEBUGMODE
-    tracker -> draw(tar_list);
+#ifdef APRILTAG
+    tracker -> draw(detector->tag_list);
+#else
+    tracker -> draw();
+#endif
     if (ts.message.crc){
         cv::putText(src, "latency: " + std::to_string(ts.message.latency), cv::Point(1050, 150), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
         cv::putText(src, "xc: " + std::to_string(ts.message.x_c), cv::Point(1130, 200), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
@@ -167,8 +197,8 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
         cv::putText(src, "vyaw: " + std::to_string(ts.message.vyaw), cv::Point(1100, 700), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
     }
 #endif // DEBUGMODE
-    
 }
+
 void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armor &tar, int number)
 {
     //===============pnp解算===============//
