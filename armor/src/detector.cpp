@@ -23,7 +23,7 @@ void Detector::find_apriltag(cv::Mat &src, std::vector<UnsolvedArmor> &armors){
     //=====================AprilTag识别======================//
     cv::Mat gray;
     cv::cvtColor(src, gray, cv::COLOR_BGR2GRAY);
-     cv::convertScaleAbs(gray, gray, 1, 50);
+     cv::convertScaleAbs(gray, gray, 1, 200);
     // std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     apriltagDetector -> detect(gray, tags, ids);
     // std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
@@ -50,8 +50,9 @@ void Detector::find_apriltag(cv::Mat &src, std::vector<UnsolvedArmor> &armors){
     for (auto &armor : armors){
         for (int i = 0; i < tags.size(); i++){
             if (ids[i] != 0) continue;
-            std::vector<cv::Point2d> quad = {armor.left_light.bottom, armor.left_light.top, armor.right_light.top, armor.right_light.bottom};
-            if(cv::pointPolygonTest(quad, tags[i][0], false) > 0){
+            std::vector<cv::Point2f> quad = {armor.left_light.bottom, armor.left_light.top, armor.right_light.top, armor.right_light.bottom};
+            cv::Point2d point = (tags[i][0] + tags[i][1] + tags[i][2] + tags[i][3]) / 4.0;
+            if(cv::pointPolygonTest(quad, point, false) > 0){
                 armor.isApriltag = true;
                 break;
             }
@@ -157,10 +158,10 @@ std::vector<UnsolvedArmor> Detector::detect(cv::Mat &input, const int color)
 #endif
         classifier->classify(armors_);
     }
-    for (auto &armor : armors_){
-        refine_corner(armor.left_light, input);
-        refine_corner(armor.right_light, input);
-    }
+    // for (auto &armor : armors_){
+    //     refine_corner(armor.left_light, input);
+    //     refine_corner(armor.right_light, input);
+    // }
     return armors_;
 }
 

@@ -202,6 +202,7 @@ void *OperationFunction(void *arg)
     uint8_t error_times{0};
     int processing_buffer = 1; // 当前处理的缓冲区
     int cnt = 0;
+    int empty_frame_count = 0;
     // cv::waitKey(200);
     while (1)
     {
@@ -227,10 +228,17 @@ void *OperationFunction(void *arg)
         if (pic.empty()){
 #ifdef VIRTUALGRAB
             pic = cv::Mat(gp.height, gp.width, CV_8UC3, cv::Scalar(0, 0, 0));
-#else
-            printf("pic is empty\n");
-            exit(1);
+#else       
+            empty_frame_count++;
+            if (empty_frame_count > 3){
+                printf("pic is empty\n");
+                exit(0);
+            }else{
+                pic = cv::Mat(gp.height, gp.width, CV_8UC3, cv::Scalar(0, 0, 0));
+            }
 #endif
+        }else{
+            empty_frame_count = 0;
         }
 #ifdef RECORDVIDEO // 如果开启录制视频，使用MManager类进行录制
         MManager.recordFrame(pic);
