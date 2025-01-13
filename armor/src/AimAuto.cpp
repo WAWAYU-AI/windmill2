@@ -26,7 +26,7 @@
 #define V_ZOOM 1.0
 #define VYAW_ZOOM 1.0
 
-const std::vector<cv::Point3f> small_armor = {
+/* const std::vector<cv::Point3f> small_armor = {
     cv::Point3f(-67.50F, 28.50F, 0), // 2,3,4,1象限顺序
     cv::Point3f(-67.50F, -28.50F, 0),
     cv::Point3f(67.50F, -28.50F, 0),
@@ -37,7 +37,7 @@ const std::vector<cv::Point3f> big_armor = {
     cv::Point3f(-112.50F, -28.50F, 0),
     cv::Point3f(112.50F, -28.50F, 0),
     cv::Point3f(112.50F, 28.50F, 0),
-};
+}; */
 
 void convertNumber(const std::string &number_s, int &number_i)
 {
@@ -68,13 +68,18 @@ void AimAuto::draw_armor_back(cv::Mat &pic, Armor &armor, int number){
     std::vector<cv::Point3f> objPoints;
     if (!gp->isBigArmor[number])
         objPoints = {
-            cv::Point3f(-67.50F, 62.50F, 0), // 2,3,4,1象限顺序
-            cv::Point3f(-67.50F, -62.50F, 0),
-            cv::Point3f(67.50F, -62.50F, 0),
-            cv::Point3f(67.50F, 62.50F, 0),
+            cv::Point3f(-gp->small_armor_a, 62.50F, 0), // 2,3,4,1象限顺序
+            cv::Point3f(-gp->small_armor_a, -62.50F, 0),
+            cv::Point3f(gp->small_armor_a, -62.50F, 0),
+            cv::Point3f(gp->small_armor_a, 62.50F, 0),
         };
     else
-        objPoints = big_armor;
+        objPoints = {
+            cv::Point3f(-gp->big_armor_a, gp->big_armor_b, 0), // 2,3,4,1象限顺序
+            cv::Point3f(-gp->big_armor_a, -gp->big_armor_b, 0),
+            cv::Point3f(gp->big_armor_a, -gp->big_armor_b, 0),
+            cv::Point3f(gp->big_armor_a, gp->big_armor_b, 0),
+        };
     std::vector<cv::Point2f> imgPoints;
     cv::Mat rVec = (cv::Mat_<double>(3, 1) << armor.angle.x, armor.angle.y, armor.angle.z);
     cv::Mat tVec = (cv::Mat_<double>(3, 1) << armor.center.x, armor.center.y, armor.center.z);
@@ -169,9 +174,19 @@ void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armo
     //===============pnp解算===============//
     std::vector<cv::Point3f> objPoints;
     if (!gp->isBigArmor[number])
-        objPoints = small_armor;
+        objPoints = {
+            cv::Point3f(-gp->small_armor_a, gp->small_armor_b, 0), // 2,3,4,1象限顺序
+            cv::Point3f(-gp->small_armor_a, -gp->small_armor_b, 0),
+            cv::Point3f(gp->small_armor_a, -gp->small_armor_b, 0),
+            cv::Point3f(gp->small_armor_a, gp->small_armor_b, 0),
+        };
     else 
-        objPoints = big_armor;
+        objPoints = {
+            cv::Point3f(-gp->big_armor_a, gp->big_armor_b, 0), // 2,3,4,1象限顺序
+            cv::Point3f(-gp->big_armor_a, -gp->big_armor_b, 0),
+            cv::Point3f(gp->big_armor_a, -gp->big_armor_b, 0),
+            cv::Point3f(gp->big_armor_a, gp->big_armor_b, 0),
+        };
     cv::Mat rVec, tVec, _K, _dist;
     tVec.create(3, 1, CV_64F);
     rVec.create(3, 1, CV_64F);
