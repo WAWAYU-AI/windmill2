@@ -11,3 +11,7 @@ r_yaw: 0.00001
 s2p0xyr: 1000
 s2p0yaw: 1
 r_initial: 450
+small_armor_a: 67.5
+small_armor_b: 28.5
+big_armor_a: 112.5
+big_armor_b: 28.5

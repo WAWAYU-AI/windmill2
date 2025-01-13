@@ -275,6 +275,11 @@ struct GlobalParam
     double s2p0yaw = 1;
     double r_initial = 450;
 
+    double small_armor_a = 67.5; // 小装甲板的长
+    double small_armor_b = 28.5; // 小装甲板的宽
+    double big_armor_a = 112.5;  // 大装甲板的长
+    double big_armor_b = 28.5;  // 大装甲板的宽
+
     //===新加的===//
     // int realy_mid = 720;
     // double camera2shootBias = 0.0;

@@ -57,6 +57,10 @@ void GlobalParam::initGlobalParam(const int color)
     fs["s2p0xyr"] >> s2p0xyr;
     fs["s2p0yaw"] >> s2p0yaw;
     fs["r_initial"] >> r_initial;
+    fs["small_armor_a"] >> small_armor_a; // 小装甲板的长
+    fs["small_armor_b"] >> small_armor_b; // 小装甲板的宽
+    fs["big_armor_a"] >> big_armor_a;     // 大装甲板的长
+    fs["big_armor_b"] >> big_armor_b;     // 大装甲板的宽
     fs.release();
 
     // 打开DetectionConfig配置文件
@@ -134,6 +138,10 @@ void GlobalParam::saveGlobalParam()
     fs << "s2p0xyr" << s2p0xyr;
     fs << "s2p0yaw" << s2p0yaw;
     fs << "r_initial" << r_initial;
+    fs << "small_armor_a" << small_armor_a; // 小装甲板的长
+    fs << "small_armor_b" << small_armor_b; // 小装甲板的宽
+    fs << "big_armor_a" << big_armor_a;     // 大装甲板的长
+    fs << "big_armor_b" << big_armor_b;     // 大装甲板的宽
     fs.release();              
 
     // 打开DetectionConfig配置文件以写入参数
