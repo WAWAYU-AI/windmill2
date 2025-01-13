@@ -17,6 +17,9 @@
 #include "number_classifier.hpp"
 #include "globalParam.hpp"
 
+#ifdef APRILTAG
+#include "ApriltagDetector.hpp"
+#endif
 class Detector{    
     public:
         struct LightParams
@@ -60,12 +63,21 @@ class Detector{
         LightParams l;
         ArmorParams a;
         std::unique_ptr<NumberClassifier> classifier;
+#ifdef APRILTAG
+        std::vector<Armor> tag_list;
+#endif
 
         // Debug msgs
         cv::Mat binary_img;
 
     private:
         GlobalParam *gp;
+#ifdef APRILTAG
+        ApriltagDetector *apriltagDetector;
+        void find_apriltag(cv::Mat &src, std::vector<UnsolvedArmor> &armors);
+        std::vector<std::vector<cv::Point2d> > tags;
+        std::vector<int> ids;
+#endif
         bool isLight(const Light &possible_light);
         bool containLight(
             const Light &light_1, const Light &light_2, const std::vector<Light> &lights);

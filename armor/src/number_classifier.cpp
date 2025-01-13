@@ -170,6 +170,7 @@ void NumberClassifier::classify(std::vector<UnsolvedArmor> &armors)
             armors.begin(), armors.end(),
             [this](const UnsolvedArmor &armor)
             {
+                if (armor.isApriltag) return false;
                 if (armor.confidence < threshold)
                 {
                     return true;
@@ -182,18 +183,7 @@ void NumberClassifier::classify(std::vector<UnsolvedArmor> &armors)
                         return true;
                     }
                 }
-
-                bool mismatch_armor_type = false;
-                // if (armor.type == ArmorType::LARGE)
-                // {
-                //     mismatch_armor_type =
-                //         armor.number == "outpost" || armor.number == "2" || armor.number == "guard";
-                // }
-                // else if (armor.type == ArmorType::SMALL)
-                // {
-                //     mismatch_armor_type = armor.number == "1" || armor.number == "base";
-                // }
-                return mismatch_armor_type;
+                return false;
             }),
         armors.end());
 }

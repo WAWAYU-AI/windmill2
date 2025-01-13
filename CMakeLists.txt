@@ -11,7 +11,7 @@
     set(OpenCV_DIR /usr/local/lib/cmake/opencv4)
     find_package(OpenCV 4 QUIET)
     # aim debug
-    add_definitions(-DAPRILTAG)
+    # add_definitions(-DAPRILTAG)
     # add_definitions(-DPOSESTIMATION)
     add_definitions(-DSHOW_FPS)
     # add_definitions(-DDEBUGREFINE)

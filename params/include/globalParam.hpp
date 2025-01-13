@@ -105,6 +105,7 @@ struct UnsolvedArmor
   std::string number;
   float confidence;
   std::string classfication_result;
+  bool isApriltag = false;
 };
   // namespace rm_auto_aim
 

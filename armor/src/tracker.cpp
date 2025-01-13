@@ -119,52 +119,36 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
     }
 }
 
-void Tracker::draw(std::vector<Armor> &armors_curr){
+void Tracker::draw(const std::vector<Armor> armor_curr){
     cv::Mat img(1000, 1200, CV_8UC3, cv::Scalar(255, 255, 255));
+    double scale = 4, bias = 1000;
     for (auto z : z_vector_list){
         Armor armor;
-        armor.position = z.segment(0,3), armor.yaw = z(3);
-        cv::Point a(armor.position(0) - 67.5 * sin(armor.yaw), armor.position(1) + 67.5 * cos(armor.yaw));
-        cv::Point b(armor.position(0) + 67.5 * sin(armor.yaw), armor.position(1) - 67.5 * cos(armor.yaw));
-        cv::Point c(armor.position(0) + 30 * cos(armor.yaw), armor.position(1) + 30 * sin(armor.yaw));
-        cv::circle(img, cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), 3, cv::Scalar(0, 0, 255), -1);
-        cv::line(img, cv::Point(a.y/5 + 600, (a.x-1000)/5), cv::Point(b.y/5 + 600, (b.x-1000)/5), cv::Scalar(0, 0 ,255), 2);
-        cv::line(img, cv::Point(c.y/5 + 600, (c.x-1000)/5), cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), cv::Scalar(0, 0 ,255), 2);
-        armor.position = z.segment(4,3), armor.yaw = z(7);
-        {
-        cv::Point a(armor.position(0) - 67.5 * sin(armor.yaw), armor.position(1) + 67.5 * cos(armor.yaw));
-        cv::Point b(armor.position(0) + 67.5 * sin(armor.yaw), armor.position(1) - 67.5 * cos(armor.yaw));
-        cv::Point c(armor.position(0) + 30 * cos(armor.yaw), armor.position(1) + 30 * sin(armor.yaw));
-        cv::circle(img, cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), 3, cv::Scalar(0, 0, 255), -1);
-        cv::line(img, cv::Point(a.y/5 + 600, (a.x-1000)/5), cv::Point(b.y/5 + 600, (b.x-1000)/5), cv::Scalar(0, 0 ,255), 2);
-        cv::line(img, cv::Point(c.y/5 + 600, (c.x-1000)/5), cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), cv::Scalar(0, 0 ,255), 2);
-        }
-        {
-        armor.position = z.segment(8,3), armor.yaw = z(11);
-        cv::Point a(armor.position(0) - 67.5 * sin(armor.yaw), armor.position(1) + 67.5 * cos(armor.yaw));
-        cv::Point b(armor.position(0) + 67.5 * sin(armor.yaw), armor.position(1) - 67.5 * cos(armor.yaw));
-        cv::Point c(armor.position(0) + 30 * cos(armor.yaw), armor.position(1) + 30 * sin(armor.yaw));
-        cv::circle(img, cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), 3, cv::Scalar(0, 0, 255), -1);
-        cv::line(img, cv::Point(a.y/5 + 600, (a.x-1000)/5), cv::Point(b.y/5 + 600, (b.x-1000)/5), cv::Scalar(0, 0 ,255), 2);
-        cv::line(img, cv::Point(c.y/5 + 600, (c.x-1000)/5), cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), cv::Scalar(0, 0 ,255), 2);
-        }
-        {
-        armor.position = z.segment(12,3), armor.yaw = z(15);
-        cv::Point a(armor.position(0) - 67.5 * sin(armor.yaw), armor.position(1) + 67.5 * cos(armor.yaw));
-        cv::Point b(armor.position(0) + 67.5 * sin(armor.yaw), armor.position(1) - 67.5 * cos(armor.yaw));
-        cv::Point c(armor.position(0) + 30 * cos(armor.yaw), armor.position(1) + 30 * sin(armor.yaw));
-        cv::circle(img, cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), 3, cv::Scalar(0, 0, 255), -1);
-        cv::line(img, cv::Point(a.y/5 + 600, (a.x-1000)/5), cv::Point(b.y/5 + 600, (b.x-1000)/5), cv::Scalar(0, 0 ,255), 2);
-        cv::line(img, cv::Point(c.y/5 + 600, (c.x-1000)/5), cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), cv::Scalar(0, 0 ,255), 2);
+        for (int i = 0; i < 16; i+=4){
+            armor.position = z.segment(i,3), armor.yaw = z(i + 3);
+            cv::Point a(armor.position(0) - 67.5 * sin(armor.yaw), armor.position(1) + 67.5 * cos(armor.yaw));
+            cv::Point b(armor.position(0) + 67.5 * sin(armor.yaw), armor.position(1) - 67.5 * cos(armor.yaw));
+            cv::Point c(armor.position(0) + 30 * cos(armor.yaw), armor.position(1) + 30 * sin(armor.yaw));
+            cv::circle(img, cv::Point(armor.position(1)/scale + 600,(armor.position(0)-bias)/scale), 3, cv::Scalar(0, 0, 255), -1);
+            cv::line(img, cv::Point(a.y/scale + 600, (a.x-bias)/scale), cv::Point(b.y/scale + 600, (b.x-bias)/scale), cv::Scalar(0, 0 ,255), 2);
+            cv::line(img, cv::Point(c.y/scale + 600, (c.x-bias)/scale), cv::Point(armor.position(1)/scale + 600,(armor.position(0)-bias)/scale), cv::Scalar(0, 0 ,255), 2);
         }
     }
     for (auto armor : armors_pred){
         cv::Point a(armor.position(0) - 67.5 * sin(armor.yaw), armor.position(1) + 67.5 * cos(armor.yaw));
         cv::Point b(armor.position(0) + 67.5 * sin(armor.yaw), armor.position(1) - 67.5 * cos(armor.yaw));
         cv::Point c(armor.position(0) + 30 * cos(armor.yaw), armor.position(1) + 30 * sin(armor.yaw));
-        cv::circle(img, cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), 3, cv::Scalar(0, 255, 0), -1);
-        cv::line(img, cv::Point(a.y/5 + 600, (a.x-1000)/5), cv::Point(b.y/5 + 600, (b.x-1000)/5), cv::Scalar(0, 255 ,0), 2);
-        cv::line(img, cv::Point(c.y/5 + 600, (c.x-1000)/5), cv::Point(armor.position(1)/5 + 600,(armor.position(0)-1000)/5), cv::Scalar(0, 255 ,0), 2);
+        cv::circle(img, cv::Point(armor.position(1)/scale + 600,(armor.position(0)-bias)/scale), 3, cv::Scalar(0, 255, 0), -1);
+        cv::line(img, cv::Point(a.y/scale + 600, (a.x-bias)/scale), cv::Point(b.y/scale + 600, (b.x-bias)/scale), cv::Scalar(0, 255 ,0), 2);
+        cv::line(img, cv::Point(c.y/scale + 600, (c.x-bias)/scale), cv::Point(armor.position(1)/scale + 600,(armor.position(0)-bias)/scale), cv::Scalar(0, 255 ,0), 2);
+    }
+    for (auto armor : armor_curr){
+        cv::Point a(armor.position(0) - 67.5 * sin(armor.yaw), armor.position(1) + 67.5 * cos(armor.yaw));
+        cv::Point b(armor.position(0) + 67.5 * sin(armor.yaw), armor.position(1) - 67.5 * cos(armor.yaw));
+        cv::Point c(armor.position(0) + 30 * cos(armor.yaw), armor.position(1) + 30 * sin(armor.yaw));
+        cv::circle(img, cv::Point(armor.position(1)/scale + 600,(armor.position(0)-bias)/scale), 3, cv::Scalar(255, 0, 0), -1);
+        cv::line(img, cv::Point(a.y/scale + 600, (a.x-bias)/scale), cv::Point(b.y/scale + 600, (b.x-bias)/scale), cv::Scalar(255, 0 ,0), 2);
+        cv::line(img, cv::Point(c.y/scale + 600, (c.x-bias)/scale), cv::Point(armor.position(1)/scale + 600,(armor.position(0)-bias)/scale), cv::Scalar(255, 0 ,0), 2);
     }
     cv::imshow("track",img);
 }
