@@ -14,3 +14,4 @@ blue_threshold: 65
 red_threshold: 70
 grad_max: 300
 grad_min: 150
+brightness_threshold: 50

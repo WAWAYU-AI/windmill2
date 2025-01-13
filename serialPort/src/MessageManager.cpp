@@ -40,10 +40,7 @@ MessageManager::MessageManager(GlobalParam &gp)
     this->now_time = 0;
     this->n_time = 0;
     this->start_time = 0;
-    cv::FileStorage fs;
-    fs.open("../config/Path.yaml", cv::FileStorage::READ);
-    std::string video_address;
-    fs["video"] >> video_address;
+    std::string video_address = "../video/v1.avi";
 #ifdef VIRTUALGRAB
     this->capture.open(video_address);
     this->totalFrames = capture.get(cv::CAP_PROP_FRAME_COUNT);
@@ -51,15 +48,8 @@ MessageManager::MessageManager(GlobalParam &gp)
     this->currentFrames = 0;
 #endif
 #ifdef RECORDVIDEO
-    std::string output_address;
-    int idx = 0;
-    fs["output"] >> output_address;
-    fs["num"] >> idx;
-    cv::FileStorage record;
-    record.open("../config/Path.yaml", cv::FileStorage::WRITE);
-    record << "video" << video_address;
-    record << "output" << output_address;
-    record << "num" << idx + 1;
+    std::string output_address = "../video/";
+    int idx = 1;
     int coder = cv::VideoWriter::fourcc('m', 'p', '4', 'v');
     this->vw = new cv::VideoWriter(output_address + std::to_string(idx) + ".MP4", coder, 25.0, cv::Size(1080, 720), true);
 #endif
@@ -215,19 +205,9 @@ void MessageManager::recordFrame(cv::Mat &pic)
         frame_accum = 0;
         vw->release();
         delete vw;
-        cv::FileStorage fs;
-        fs.open("../config/Path.yaml", cv::FileStorage::READ);
-        std::string video_address;
-        fs["video"] >> video_address;
-        std::string output_address;
-        int idx = 0;
-        fs["output"] >> output_address;
-        fs["num"] >> idx;
-        cv::FileStorage record;
-        record.open("../config/Path.yaml", cv::FileStorage::WRITE);
-        record << "video" << video_address;
-        record << "output" << output_address;
-        record << "num" << idx + 1;
+        std::string video_address = "../video/v1.avi";
+        std::string output_address = "../video/";
+        int idx = 1;
         int coder = cv::VideoWriter::fourcc('m', 'p', '4', 'v');
         this->vw = new cv::VideoWriter(output_address + std::to_string(idx) + ".MP4", coder, 25.0, cv::Size(1080, 720), true);
     }
