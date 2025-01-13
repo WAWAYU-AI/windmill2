@@ -17,6 +17,8 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/video/video.hpp>
 #include <vector>
+#include "ApriltagDetector.hpp"
+
 class AimAuto
 {
 private:
@@ -25,6 +27,9 @@ private:
     Tracker *tracker;
     void pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armor &tar, int number);
     void draw_armor_back(cv::Mat &src, Armor &armor, int number);
+#ifdef APRILTAG
+    ApriltagDetector *apriltag_detector;
+#endif
 public:
     AimAuto(GlobalParam *gp);
     ~AimAuto();

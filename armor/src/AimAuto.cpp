@@ -19,9 +19,9 @@
 #include <vector>
 
 // 相机到云台转轴的平移向量
-#define VECTOR_X 75
+#define VECTOR_X 0.015
 #define VECTOR_Y 0
-#define VECTOR_Z 111
+#define VECTOR_Z 0.095
 #define DIM_ERROR_DEEP 1.0
 #define V_ZOOM 1.0
 #define VYAW_ZOOM 1.0
@@ -92,6 +92,9 @@ AimAuto::AimAuto(GlobalParam *gp)
     // 保存全局参数及其他初始化
     detector = new Detector(*gp); // 初始化检测器
     tracker = new Tracker(*gp); // 初始化跟踪器
+#ifdef APRILTAG
+    apriltag_detector = new ApriltagDetector(75, gp->fx, gp->fy, gp->cx, gp->cy, gp->k1, gp->k2, gp->p1, gp->p2, gp->k3); // 初始化apriltag检测器
+#endif
     this->gp = gp;
 }
 AimAuto::~AimAuto()
@@ -99,12 +102,48 @@ AimAuto::~AimAuto()
     delete detector;
     delete tracker;
 }
+
 void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
 {
     std::vector<Armor> tar_list;
     auto armors = detector->detect(src, gp->color);
     std::sort(armors.begin(), armors.end(), [&](const UnsolvedArmor &la, const UnsolvedArmor &lb)
               { return abs((double)src.cols / 2 - ((la.left_light.top + la.right_light.top + la.left_light.bottom + la.right_light.bottom) / 4).x) < abs((double)src.cols / 2 - ((lb.left_light.top + lb.right_light.top + lb.left_light.bottom + lb.right_light.bottom) / 4).x); });
+    #ifdef APRILTAG
+    //=====================AprilTag识别======================//
+    std::vector<std::vector<cv::Point2d> > tags;
+    std::vector<int> ids;
+    cv::Mat gray;
+    cv::cvtColor(src, gray, cv::COLOR_BGR2GRAY);
+     cv::convertScaleAbs(gray, gray, 1, 50);
+    std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
+    apriltag_detector -> detect(gray, tags, ids);
+    std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+    std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    std::cout << "AprilTag time: " << time_span.count() << " seconds." << std::endl;
+    cv::Vec3d rvec, tvec;
+    apriltag_detector -> draw(src, tags, ids);
+    std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
+    std::chrono::duration<double> time_span2 = std::chrono::duration_cast<std::chrono::duration<double>>(t3 - t2);
+    std::cout << "AprilTag draw time: " << time_span2.count() << " seconds." << std::endl;
+    cv::Mat rVec, tVec;
+    for (int i = 0; i < tags.size(); i++)
+    {
+        if (ids[i] == 0){
+            apriltag_detector -> solvePnP(tags[i], rVec, tVec);
+            cv::Rodrigues(rVec, rVec);
+            Armor tar;
+            tar.center = cv::Point3f(tVec.at<double>(0), tVec.at<double>(1), tVec.at<double>(2));
+            tar.angle = cv::Point3f(rVec.at<double>(0), rVec.at<double>(1), rVec.at<double>(2));
+            tar_list.emplace_back(tar);
+            // cv::putText(img, "x: " + std::to_string(tvec[0]) + " y: " + std::to_string(tvec[1]) + " z: " + std::to_string(tvec[2]), cv::Point(100, 100), 1, 2, cv::Scalar(225, 225, 0), 2);
+            // cv::putText(img, "yaw: " + std::to_string(rvec[0]), cv::Point(100, 200), 1, 2, cv::Scalar(225, 225, 0), 2);
+            // cv::putText(img, "pitch: " + std::to_string(rvec[1]), cv::Point(100, 300), 1, 2, cv::Scalar(225, 225, 0), 2);
+            // cv::putText(img, "roll: " + std::to_string(rvec[2]), cv::Point(100, 400), 1, 2, cv::Scalar(225, 225, 0), 2);
+        }
+    }
+    cv::imshow("apriltag", src);
+#endif
     for (auto armor : armors)
     {
         int number = 0;
@@ -139,14 +178,11 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
     cv::putText(src, "x: " + std::to_string(armor.position(0)), cv::Point(15, 400), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
     cv::putText(src, "y: " + std::to_string(armor.position(1)), cv::Point(15, 450), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
     cv::putText(src, "z: " + std::to_string(armor.position(2)), cv::Point(15, 500), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
-    cv::putText(src, "pitch: " + std::to_string(ts.message.pitch), cv::Point(15, 550), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
-    cv::putText(src, "yaw: " + std::to_string(ts.message.yaw), cv::Point(15, 600), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
 #endif // DEBUGMODE
 
     tracker->track(tar_list, ts, dt);
 
 #ifdef DEBUGMODE
-    tracker -> draw(tar_list);
     if (ts.message.crc){
         cv::putText(src, "latency: " + std::to_string(ts.message.latency), cv::Point(1050, 150), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
         cv::putText(src, "xc: " + std::to_string(ts.message.x_c), cv::Point(1130, 200), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
@@ -162,8 +198,8 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
         cv::putText(src, "vyaw: " + std::to_string(ts.message.vyaw), cv::Point(1100, 700), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
     }
 #endif // DEBUGMODE
-    
 }
+
 void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armor &tar, int number)
 {
     //===============pnp解算===============//

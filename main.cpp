@@ -225,9 +225,12 @@ void *OperationFunction(void *arg)
         processing_buffer = (processing_buffer + 1) % 2;
         // 如果图片为空，不执行
         if (pic.empty()){
+#ifdef VIRTUALGRAB
             pic = cv::Mat(gp.height, gp.width, CV_8UC3, cv::Scalar(0, 0, 0));
-            // printf("pic is empty\n");
-            // exit(1);
+#else
+            printf("pic is empty\n");
+            exit(1);
+#endif
         }
 #ifdef RECORDVIDEO // 如果开启录制视频，使用MManager类进行录制
         MManager.recordFrame(pic);
