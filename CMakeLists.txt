@@ -7,7 +7,9 @@
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -pthread")
     SET(CMAKE_CXX_FLAGS_RELEASE "-std=c++17 -pthread")
     find_package(OpenVINO REQUIRED COMPONENTS Runtime)
-    # find_package(Ceres REQUIRED)
+    find_package(Ceres REQUIRED)
+    find_package(Eigen3 REQUIRED)
+    include_directories(${EIGEN3_INCLUDE_DIR})
     set(OpenCV_DIR /usr/local/lib/cmake/opencv4)
     find_package(OpenCV 4 QUIET)
     # aim debug
@@ -18,7 +20,7 @@
     add_definitions(-DDEBUGMODE)
     # add_definitions(-DDEBUGCOLOR)
     # add_definitions(-DDEBUGNUM)
-    # add_definitions(-DVIRTUALGRAB)  # 打开虚拟取流 即用视频跑
+    add_definitions(-DVIRTUALGRAB)  # 打开虚拟取流 即用视频跑
     add_definitions(-DNOPORT)    
     # add_definitions(-DUSETRIGGERMODE)
     # add_definitions(-DTHREADANALYSIS)

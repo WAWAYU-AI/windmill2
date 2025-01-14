@@ -17,6 +17,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "ceres/ceres.h"
+#include "glog/logging.h"
 
 // 相机到云台转轴的平移向量
 #define VECTOR_X 75
@@ -222,14 +224,17 @@ void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armo
     rVec.create(3, 1, CV_64F);
     _K = (cv::Mat_<double>(3, 3) << (float)gp->fx, 0, (float)gp->cx, 0, (float)gp->fy, (float)gp->cy, 0, 0, 1);//相机的内参矩阵
     _dist = (cv::Mat_<float>(1, 5) << (float)gp->k1, (float)gp->k2, (float)gp->p1, (float)gp->p2, (float)gp->k3);//相机的畸变系数
-    std::vector<cv::Point2f> tmp = {armor.left_light.top, armor.left_light.bottom, armor.right_light.bottom, armor.right_light.top};
-    cv::solvePnP(objPoints,tmp,_K,_dist,rVec,tVec,false,cv::SOLVEPNP_IPPE);
+    std::vector<cv::Point2f> imagePoints = {armor.left_light.top, armor.left_light.bottom, armor.right_light.bottom, armor.right_light.top};
+    cv::solvePnP(objPoints,imagePoints,_K,_dist,rVec,tVec,false,cv::SOLVEPNP_IPPE);
     
     //=================坐标系转换================//
     tar.center = cv::Point3f(tVec.at<double>(0), tVec.at<double>(1), tVec.at<double>(2));
     cv::Mat rotation_matrix;
     cv::Rodrigues(rVec, rotation_matrix);
     double yaw = std::atan2(rotation_matrix.at<double>(0, 2), rotation_matrix.at<double>(2, 2));//储存装甲板信息
+    
+    optimizeYawZ(objPoints, imagePoints, tar.center.x, tar.center.y, yaw, tar.center.z, _K, _dist);
+    
     if (yaw < 0){
         yaw = - yaw - M_PI;
     }else{
@@ -263,4 +268,122 @@ void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armo
     cv::Rodrigues(rotation_matrix, rVec);
     tar.rVec = rVec;    // 世界系到车体系旋转向量
     //=========================================//
+}
+
+struct ReprojectionError {
+    ReprojectionError(const std::vector<cv::Point3f>& objPoints,
+                      const std::vector<cv::Point2f>& imgPoints,
+                      double known_pitch,
+                      double known_roll,
+                      double known_x,
+                      double known_y,
+                      const cv::Mat& K,
+                      const cv::Mat& dist)
+    : objPoints_(objPoints), imgPoints_(imgPoints), known_pitch_(known_pitch),
+    known_roll_(known_roll), known_x_(known_x), known_y_(known_y) {
+        K_ = K.clone();
+        dist_ = dist.clone();
+    }
+
+    template <typename T>
+    bool operator()(const T* const params, T* residuals) const {
+        T yaw = params[0];
+        T z = params[1];
+        T pitch = T(-15 * M_PI / 180);
+
+        Eigen::Matrix<T, 3, 3> mat_y;
+        mat_y << cos(pitch), T(0), sin(pitch),
+                T(0), T(1), T(0),
+                -sin(pitch), T(0), cos(pitch);
+
+        Eigen::Matrix<T, 3, 3> mat_z;
+        mat_z << cos(yaw), -sin(yaw), T(0),
+                sin(yaw), cos(yaw), T(0),
+                T(0), T(0), T(1);
+
+        Eigen::Matrix<T, 3, 3> rotation_matrix = mat_y * mat_z;
+        Eigen::AngleAxis<T> angle_axis(rotation_matrix);
+        Eigen::Matrix<T, 3, 1> rvec_local = angle_axis.angle() * angle_axis.axis();
+
+        Eigen::Matrix<T, 3, 1> tvec_local(T(known_x_), T(known_y_), z);
+
+        std::vector<cv::Point2f> projected_points;
+
+        Eigen::Matrix<double, 3, 1> rvec_local_d;
+        Eigen::Matrix<double, 3, 1> tvec_local_d;
+
+        for (int i = 0; i < 3; ++i) {
+            if constexpr (std::is_same_v<T, ceres::Jet<double, 2>>) {
+                rvec_local_d(i) = rvec_local(i).a;
+                tvec_local_d(i) = tvec_local(i).a;
+            } else {
+                rvec_local_d(i) = rvec_local(i);
+                tvec_local_d(i) = tvec_local(i);
+            }
+        }
+
+        cv::Mat rvec_cv, tvec_cv;
+        cv::eigen2cv(rvec_local_d, rvec_cv);
+        cv::eigen2cv(tvec_local_d, tvec_cv);
+
+        cv::projectPoints(objPoints_, rvec_cv, tvec_cv, K_, dist_, projected_points);
+
+        for (size_t i = 0; i < projected_points.size(); ++i) {
+            cv::Point2f diff = projected_points[i] - imgPoints_[i];
+            residuals[2 * i] = T(diff.x);
+            residuals[2 * i + 1] = T(diff.y);
+        }
+
+        return true;
+}
+
+
+    static ceres::CostFunction* Create(const std::vector<cv::Point3f>& objPoints,
+                                    const std::vector<cv::Point2f>& imgPoints,
+                                    double known_pitch,
+                                    double known_roll,
+                                    double known_x,
+                                    double known_y,
+                                    const cv::Mat& K,
+                                    const cv::Mat& dist) {
+        return (new ceres::AutoDiffCostFunction<ReprojectionError, ceres::DYNAMIC, 2>(
+            new ReprojectionError(objPoints, imgPoints, known_pitch, known_roll, known_x, known_y, K, dist),
+            imgPoints.size() * 2));
+    }
+
+    const std::vector<cv::Point3f>& objPoints_;
+    const std::vector<cv::Point2f>& imgPoints_;
+    cv::Mat K_;
+    cv::Mat dist_;
+    double known_pitch_;
+    double known_roll_;
+    double known_x_;
+    double known_y_;
+};
+
+void AimAuto::optimizeYawZ(
+    const std::vector<cv::Point3f>& objPoints,
+    const std ::vector<cv::Point2f>& imgPoints,
+    double known_x,
+    double known_y,
+    double &yaw,
+    float &z,
+    const cv::Mat& K,
+    const cv::Mat& dist
+) {
+    /*优化过程*/
+    double param[2] = { yaw, z };
+    ceres::Problem problem;
+    ceres::CostFunction* cost_function = ReprojectionError::Create(objPoints, imgPoints, -15 * M_PI / 180, 0, known_x, known_y, K, dist);
+    problem.AddResidualBlock(cost_function, nullptr, param);
+    
+    ceres::Solver::Options options;
+    options.linear_solver_type = ceres::DENSE_QR;
+    options.minimizer_progress_to_stdout = true;
+
+    ceres::Solver::Summary summary;
+    ceres::Solve(options, &problem, &summary);
+    yaw = param[0];
+    z = param[1];
+
 }
