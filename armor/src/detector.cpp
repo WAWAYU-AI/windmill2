@@ -158,10 +158,10 @@ std::vector<UnsolvedArmor> Detector::detect(cv::Mat &input, const int color)
 #endif
         classifier->classify(armors_);
     }
-    // for (auto &armor : armors_){
-    //     refine_corner(armor.left_light, input);
-    //     refine_corner(armor.right_light, input);
-    // }
+    for (auto &armor : armors_){
+        refine_corner(armor.left_light, input);
+        refine_corner(armor.right_light, input);
+    }
     return armors_;
 }
 
@@ -377,90 +377,178 @@ void Detector::drawResults(cv::Mat &img)
     }
 }
 
+cv::Point2d Detector::find_symmetry_axis(cv::Mat &src){
+    cv::Mat roi = src.clone();
+    roi.convertTo(roi, CV_32F);
+    cv::normalize(roi, roi, 0, 50, cv::NORM_MINMAX);
+    std::vector<cv::Point2f> points;
+    for (int i = 0; i < roi.rows; i++) {
+        for (int j = 0; j < roi.cols; j++) {
+            for (int k = 0; k < std::round(roi.at<float>(i, j)); k++) {
+                points.emplace_back(cv::Point2f(j, i));
+            }
+        }
+    }
+    cv::Mat points_mat = cv::Mat(points).reshape(1);
+    // PCA (Principal Component Analysis)
+    auto pca = cv::PCA(points_mat, cv::Mat(), cv::PCA::DATA_AS_ROW);
+    // Get the symmetry axis
+    cv::Point2d axis =
+        cv::Point2d(pca.eigenvectors.at<double>(0, 0), pca.eigenvectors.at<double>(0, 1));
+    // Normalize the axis
+    axis = axis / cv::norm(axis);
+    if (axis.y < 0) {
+        axis = -axis;
+    }
+    return axis;
+}
+
 bool Detector::refine_corner(Light &tar, cv::Mat &src){
-    cv::Rect box = tar.boundingRect();
-    box = cv::Rect(box.x - 15, box.y - 15, box.width + 30, box.height + 30);
+    const double scale = 0.2;
+    if (tar.width < 10) return false;
+    cv::Rect box = tar.boundingRect();    // 获得灯条目标区域
+    box = cv::Rect(box.x - box.width * scale, box.y - box.height * scale, box.width * (1 + 2 * scale), box.height * (1 + 2 * scale));
     box.x = std::max(0, box.x);
     box.y = std::max(0, box.y);
     box.width = std::min(src.cols - box.x, box.width);
     box.height = std::min(src.rows - box.y, box.height);
-    cv::Mat img = src(box).clone();
+    cv::Mat roi = src(box).clone();
 #ifdef DEBUGREFINE
-    cv::imshow("raw", img);
+    cv::imshow("raw", roi);
 #endif
-    cv::cvtColor(img, img, cv::COLOR_BGR2HSV);
+    cv::cvtColor(roi, roi, cv::COLOR_BGR2HSV);      // 转换到亮度图
     cv::Mat channel[3];
-    cv::split(img, channel);
-    img = channel[2];
-    cv::GaussianBlur(img, img, cv::Size(3,3), 1, 1);
-    cv::Canny(img, img, gp->grad_min, gp->grad_max);
-#ifdef DEBUGREFINE
-    cv::imshow("canny", img);
-#endif
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
-    cv::dilate(img, img, kernel);
-    cv::erode(img, img, kernel);
-#ifdef DEBUGREFINE
-    cv::imshow("dilated", img);
-#endif
-    
-    std::vector<std::vector<cv::Point>> contours;
-    cv::findContours(img, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE, cv::Point(box.x, box.y));
-    if (contours.size() == 0) return false;
+    cv::split(roi, channel);
+    roi = channel[2];
+    cv::GaussianBlur(roi, roi, cv::Size(3,3), 1, 1);
 
-    //============================strategy1================================
-    int index = 0;
-    for (int i = 0; i < contours.size(); i++){
-        auto &contour = contours[i];
-        if (contour.size() > contours[index].size()) index = i;
+    cv::Mat mask = roi.clone();                     // 求均值与质心
+    cv::threshold(mask, mask, 50, 255, cv::THRESH_BINARY);
+    double mean_val = cv::mean(roi, mask)[0];
+    cv::Moments moments = cv::moments(roi, false);
+    cv::Point2f centroid = cv::Point2f(moments.m10 / moments.m00, moments.m01 / moments.m00);
+    cv::threshold(roi, roi, mean_val / 2, 255, cv::THRESH_TOZERO);
+    cv::Point2d axis = find_symmetry_axis(roi);    // 计算对称轴
+
+    constexpr float START = 0.4;
+    constexpr float END = 0.6;
+
+    auto inImage = [&src](const cv::Point &point) -> bool {
+        return point.x >= 0 && point.x < src.cols && point.y >= 0 && point.y < src.rows;
+    };
+    auto distance = [](float x0, float y0, float x1, float y1) -> float {
+        return std::sqrt((x0 - x1) * (x0 - x1) + (y0 - y1) * (y0 - y1));
+    };
+
+    float L = tar.length;
+    // Select multiple corner candidates and take the average as the final corner
+    int n = tar.width - 2;
+    int half_n = std::round(n / 2);
+    for (int k = 1; k >= -1; k-=2){    
+        std::vector<cv::Point2f> candidates;
+        float dx = axis.x * k;
+        float dy = axis.y * k;
+        for (int i = -half_n; i <= half_n; i++) {
+            float x0 = centroid.x + k * L * START * axis.x + i;
+            float y0 = centroid.y + k * L * START * axis.y;
+
+            cv::Point2f prev = cv::Point2f(x0, y0);
+            cv::Point2f corner = cv::Point2f(x0, y0);
+            float max_brightness_diff = 0;
+            bool has_corner = false;
+            // Search along the symmetry axis to find the corner that has the maximum brightness difference
+            for (float x = x0 + dx, y = y0 + dy; distance(x, y, x0, y0) < L * (END - START); x += dx, y += dy) {
+                cv::Point2f cur = cv::Point2f(x, y);
+                if (!inImage(cv::Point(cur))) break;
+                float brightness_diff = roi.at<uchar>(prev) - roi.at<uchar>(cur);
+                if (brightness_diff > max_brightness_diff && roi.at<uchar>(prev) > mean_val) {
+                    max_brightness_diff = brightness_diff;
+                    corner = prev;
+                    has_corner = true;
+                }
+                prev = cur;
+            }
+            if (has_corner) {
+                candidates.emplace_back(corner);
+            }
+        }
+        if (!candidates.empty()) {
+            cv::Point2f result = std::accumulate(candidates.begin(), candidates.end(), cv::Point2f(0, 0));
+            if(k==1) tar.top = result / static_cast<float>(candidates.size()) + cv::Point2f(box.x, box.y);
+            else tar.bottom = result / static_cast<float>(candidates.size()) + cv::Point2f(box.x, box.y);
+        }
     }
-    std::vector<cv::Point> &light = contours[index]; 
-
-    //============================strategy2================================
-    // int index1 = 0, index2 = 0;
-    // for (int i = 0; i < contours.size(); i++){
-    //     auto &contour = contours[i];
-    //     if (contour.size() < 25) continue;
-    //     if (contour.size() > contours[index1].size()) index2 = index1, index1 = i;
-    //     else if (contour.size() > contours[index2].size()) index2 = i;
-    // }
-    // std::vector<cv::Point> light;
-    // for(auto point : contours[index1]) light.push_back(point);
-    // for(auto point : contours[index2]) light.push_back(point);
-    
-    //=====================================================================
-#ifdef DEBUGMODE
-    cv::drawContours(src, std::vector<std::vector<cv::Point>>{light}, 0, cv::Scalar(0,255,0));
-#endif
-    auto bbox = cv::minAreaRect(light);
-    cv::Point2f p[4];
-    bbox.points(p);
-    cv::drawContours(src, std::vector<std::vector<cv::Point>>{std::vector<cv::Point>{p[0], p[1], p[2], p[3]}}, 0, cv::Scalar(0,255,0));
-    std::sort(p, p + 4, [](const cv::Point2f & a, const cv::Point2f & b) { return a.y < b.y; });
-    if (light.size() == 0) return false;
-
-    tar.top = (p[0] + p[1]) / 2;
-    tar.bottom = (p[2] + p[3]) / 2;   
-
-    // tar.top = tar.bottom = cv::Point2f(light[0].x, light[0].y);
-    // for (auto Point : light){
-    //     cv::Point2f point(Point.x, Point.y);
-    //     if (pointToLineDistance(p[2] + cv::Point2f(0,15), p[3] + cv::Point2f(0,15), point) < pointToLineDistance(p[2] + cv::Point2f(0,15), p[3] + cv::Point2f(0,15), tar.bottom)) tar.bottom = point;
-    //     if (pointToLineDistance(p[0] - cv::Point2f(0,15), p[1] - cv::Point2f(0,15), point) < pointToLineDistance(p[0] - cv::Point2f(0,15), p[1] - cv::Point2f(0,15), tar.top)) tar.top = point;
-    // }
-
-    // std::vector<cv::Point2f> corners{top, bottom};
-    // cv::Size winSize = cv::Size(3, 3); // 搜索窗口大小
-    // cv::Size zeroZone = cv::Size(0, 0); // 中心 1x1 区域不进行计算
-    // cv::TermCriteria criteria = cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 50, 0.001);
-    // cornerSubPix(channel[2], corners, winSize, zeroZone, criteria);
-    // tar.top = corners[0];
-    // tar.bottom = corners[1];
-
-#ifdef DEBUGMODE
-    cv::circle(src, tar.top, 3, cv::Scalar(255,255,255),-1);
-    cv::circle(src, tar.bottom, 3, cv::Scalar(255,255,255),-1);
-#endif
-    // cv::imshow("find light", src);
     return true;
 }
+    
+//     cv::Canny(img, img, gp->grad_min, gp->grad_max);
+// #ifdef DEBUGREFINE
+//     cv::imshow("canny", img);
+// #endif
+//     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+//     cv::dilate(img, img, kernel);
+//     cv::erode(img, img, kernel);
+// #ifdef DEBUGREFINE
+//     cv::imshow("dilated", img);
+// #endif
+    
+//     std::vector<std::vector<cv::Point>> contours;
+//     cv::findContours(img, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE, cv::Point(box.x, box.y));
+//     if (contours.size() == 0) return false;
+
+//     //============================strategy1================================
+//     int index = 0;
+//     for (int i = 0; i < contours.size(); i++){
+//         auto &contour = contours[i];
+//         if (contour.size() > contours[index].size()) index = i;
+//     }
+//     std::vector<cv::Point> &light = contours[index]; 
+
+//     //============================strategy2================================
+//     // int index1 = 0, index2 = 0;
+//     // for (int i = 0; i < contours.size(); i++){
+//     //     auto &contour = contours[i];
+//     //     if (contour.size() < 25) continue;
+//     //     if (contour.size() > contours[index1].size()) index2 = index1, index1 = i;
+//     //     else if (contour.size() > contours[index2].size()) index2 = i;
+//     // }
+//     // std::vector<cv::Point> light;
+//     // for(auto point : contours[index1]) light.push_back(point);
+//     // for(auto point : contours[index2]) light.push_back(point);
+    
+//     //=====================================================================
+// #ifdef DEBUGMODE
+//     cv::drawContours(src, std::vector<std::vector<cv::Point>>{light}, 0, cv::Scalar(0,255,0));
+// #endif
+//     auto bbox = cv::minAreaRect(light);
+//     cv::Point2f p[4];
+//     bbox.points(p);
+//     cv::drawContours(src, std::vector<std::vector<cv::Point>>{std::vector<cv::Point>{p[0], p[1], p[2], p[3]}}, 0, cv::Scalar(0,255,0));
+//     std::sort(p, p + 4, [](const cv::Point2f & a, const cv::Point2f & b) { return a.y < b.y; });
+//     if (light.size() == 0) return false;
+
+//     tar.top = (p[0] + p[1]) / 2;
+//     tar.bottom = (p[2] + p[3]) / 2;   
+
+//     // tar.top = tar.bottom = cv::Point2f(light[0].x, light[0].y);
+//     // for (auto Point : light){
+//     //     cv::Point2f point(Point.x, Point.y);
+//     //     if (pointToLineDistance(p[2] + cv::Point2f(0,15), p[3] + cv::Point2f(0,15), point) < pointToLineDistance(p[2] + cv::Point2f(0,15), p[3] + cv::Point2f(0,15), tar.bottom)) tar.bottom = point;
+//     //     if (pointToLineDistance(p[0] - cv::Point2f(0,15), p[1] - cv::Point2f(0,15), point) < pointToLineDistance(p[0] - cv::Point2f(0,15), p[1] - cv::Point2f(0,15), tar.top)) tar.top = point;
+//     // }
+
+//     // std::vector<cv::Point2f> corners{top, bottom};
+//     // cv::Size winSize = cv::Size(3, 3); // 搜索窗口大小
+//     // cv::Size zeroZone = cv::Size(0, 0); // 中心 1x1 区域不进行计算
+//     // cv::TermCriteria criteria = cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 50, 0.001);
+//     // cornerSubPix(channel[2], corners, winSize, zeroZone, criteria);
+//     // tar.top = corners[0];
+//     // tar.bottom = corners[1];
+
+// #ifdef DEBUGMODE
+//     cv::circle(src, tar.top, 3, cv::Scalar(255,255,255),-1);
+//     cv::circle(src, tar.bottom, 3, cv::Scalar(255,255,255),-1);
+// #endif
+    // cv::imshow("find light", src);
+//     return true;
+// }

@@ -2,7 +2,6 @@
 #include "SerialPort.hpp"
 #include "camera.hpp"
 #include "globalParam.hpp"
-#include "globalText.hpp"
 #include <AimAuto.hpp>
 #include <UIManager.hpp>
 #include <chrono>

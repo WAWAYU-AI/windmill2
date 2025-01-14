@@ -1,7 +1,6 @@
 #include "Eigen/Eigen"
 #include "Eigen/src/Core/Matrix.h"
 #include "globalParam.hpp"
-#include "globalText.hpp"
 #include "monitor.hpp"
 #include "opencv2/calib3d.hpp"
 #include "opencv2/core/hal/interface.h"

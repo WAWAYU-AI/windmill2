@@ -1,7 +1,6 @@
 #ifndef AIMAUTO
 #define AIMAUTO
 #include "globalParam.hpp"
-#include "globalText.hpp"
 #include "opencv2/core/mat.hpp"
 #include "tracker.hpp"
 #include <camera.hpp>

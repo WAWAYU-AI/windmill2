@@ -13,7 +13,6 @@
 #include <string>
 #include <vector>
 
-#include "armor.hpp"
 #include "number_classifier.hpp"
 #include "globalParam.hpp"
 
@@ -51,6 +50,7 @@ class Detector{
         std::vector<Light> findLights(const cv::Mat &rbg_img, const cv::Mat &binary_img);
         std::vector<UnsolvedArmor> matchLights(const std::vector<Light> &lights);
         bool refine_corner(Light &tar, cv::Mat &src);
+        cv::Point2d find_symmetry_axis(cv::Mat &src);
 
         // For debug usage
         cv::Mat getAllNumbersImage();
