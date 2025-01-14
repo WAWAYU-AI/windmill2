@@ -1,5 +1,0 @@
-%YAML:1.0
----
-video: "../video/v1.avi"
-output: "../video/"
-num: 1

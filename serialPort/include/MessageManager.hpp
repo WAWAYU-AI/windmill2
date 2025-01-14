@@ -3,7 +3,6 @@
 #include <glog/logging.h>
 #include "SerialPort.hpp"
 #include "globalParam.hpp"
-#include "globalText.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
@@ -17,7 +16,6 @@ private:
     GlobalParam *gp;
     uint32_t now_time;
     std::mutex message_lock;
-    address addr;
     // 如果是虚拟取流，则打开视频
     cv::VideoCapture capture;
     // 获取视频总帧数，初始化当前帧数，这一步对于视频循环播放有帮助

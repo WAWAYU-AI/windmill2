@@ -11,14 +11,14 @@
     set(OpenCV_DIR /usr/local/lib/cmake/opencv4)
     find_package(OpenCV 4 QUIET)
     # aim debug
-    # add_definitions(-DAPRILTAG)
+    add_definitions(-DAPRILTAG)
     # add_definitions(-DPOSESTIMATION)
     add_definitions(-DSHOW_FPS)
     # add_definitions(-DDEBUGREFINE)
     add_definitions(-DDEBUGMODE)
     # add_definitions(-DDEBUGCOLOR)
     # add_definitions(-DDEBUGNUM)
-    add_definitions(-DVIRTUALGRAB)  # 打开虚拟取流 即用视频跑
+    # add_definitions(-DVIRTUALGRAB)  # 打开虚拟取流 即用视频跑
     add_definitions(-DNOPORT)    
     # add_definitions(-DUSETRIGGERMODE)
     # add_definitions(-DTHREADANALYSIS)
