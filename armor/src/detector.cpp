@@ -441,13 +441,13 @@ bool Detector::refine_corner(Light &tar, cv::Mat &src){
     };
 
     float L = tar.length;
-    float dx = axis.x;
-    float dy = axis.y;
     // Select multiple corner candidates and take the average as the final corner
     int n = tar.width - 2;
     int half_n = std::round(n / 2);
-    for (int k = 1; k >= -1; k-=2){   
+    for (int k = 1; k >= -1; k-=2){    
         std::vector<cv::Point2f> candidates;
+        float dx = axis.x * k;
+        float dy = axis.y * k;
         for (int i = -half_n; i <= half_n; i++) {
             float x0 = centroid.x + k * L * START * axis.x + i;
             float y0 = centroid.y + k * L * START * axis.y;
@@ -474,8 +474,8 @@ bool Detector::refine_corner(Light &tar, cv::Mat &src){
         }
         if (!candidates.empty()) {
             cv::Point2f result = std::accumulate(candidates.begin(), candidates.end(), cv::Point2f(0, 0));
-            if(k==1) tar.top = result / static_cast<float>(candidates.size());
-            else tar.bottom = result / static_cast<float>(candidates.size());
+            if(k==1) tar.top = result / static_cast<float>(candidates.size()) + cv::Point2f(box.x, box.y);
+            else tar.bottom = result / static_cast<float>(candidates.size()) + cv::Point2f(box.x, box.y);
         }
     }
     return true;
