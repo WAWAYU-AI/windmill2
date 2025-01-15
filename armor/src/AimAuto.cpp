@@ -20,9 +20,10 @@
 #include "glog/logging.h"
 
 // 相机到云台转轴的平移向量
-#define VECTOR_X 75
-#define VECTOR_Y 0
-#define VECTOR_Z 111
+#define VECTOR_X 67.88
+#define VECTOR_Y 45
+#define VECTOR_Z 50
+#define angle_err - 0.5*M_PI / 180
 #define DIM_ERROR_DEEP 1.0
 #define V_ZOOM 1.0
 #define VYAW_ZOOM 1.0
@@ -176,6 +177,7 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
 #endif
 
     tracker->track(tar_list, ts, dt);
+    // tracker->track(detector->tag_list, ts, dt);
 
 #ifdef DEBUGMODE
 #ifdef APRILTAG
@@ -232,7 +234,7 @@ void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armo
     cv::Rodrigues(rVec, rotation_matrix);
     double yaw = std::atan2(rotation_matrix.at<double>(0, 2), rotation_matrix.at<double>(2, 2));//储存装甲板信息
     
-    optimizeYawZ(objPoints, imagePoints, tar.center.x, tar.center.y, yaw, tar.center.z, _K, _dist);
+    // optimizeYawZ(objPoints, imagePoints, tar.center.x, tar.center.y, yaw, tar.center.z, _K, _dist);
     
     if (yaw < 0){
         yaw = - yaw - M_PI;
@@ -258,6 +260,7 @@ void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armo
     m_pitch << cos(ts.message.pitch), 0, -sin(ts.message.pitch), 0, 1, 0, sin(ts.message.pitch), 0, cos(ts.message.pitch);
     Eigen::Vector3d temp;
     temp = Eigen::Vector3d(tar.center.z + VECTOR_X, -tar.center.x + VECTOR_Y, -tar.center.y + VECTOR_Z);
+    // ts.message.yaw += angle_err;
     tar.yaw = - ts.message.yaw + yaw;//装甲板yaw
     Eigen::MatrixXd r_mat = m_yaw * m_pitch;//旋转矩阵
     tar.position = r_mat * temp;

@@ -27,7 +27,7 @@ inline double cost(Armor a, Armor b){
     Eigen::Vector3d p1 = a.position;
     Eigen::Vector3d p2 = b.position;
     ans = sqrt(pow(p1(0) - p2(0), 2) + pow(p1(1) - p2(1), 2) + pow(p1(2) - p2(2), 2));
-    ans += 2500 * pow(dyaw(a.yaw, b.yaw), 2);
+    ans += 2000 * pow(dyaw(a.yaw, b.yaw), 2);
     ans += 10 * abs(p1(2) - p2(2));
     return ans;
 }
@@ -159,49 +159,49 @@ void Tracker::refine_zVector(int ekf_id){
     auto &z = z_vector_list[ekf_id];
     Armor armor;
     // 缺失部分直接使用预测值代替
-    if (z.segment(0, 4).norm() == 0){
-        armor = calcArmor(xc, yc, z1, r1, yaw);
+    // if (z.segment(0, 4).norm() == 0){
+    //     armor = calcArmor(xc, yc, z1, r1, yaw);
+    //     z.segment(0, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
+    // }
+    // if (z.segment(4, 4).norm() == 0){
+    //     armor = calcArmor(xc, yc, z2, r2, yaw + M_PI/2);
+    //     z.segment(4, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
+    // }
+    // if (z.segment(8, 4).norm() == 0){
+    //     armor = calcArmor(xc, yc, z1, r1, yaw + M_PI);
+    //     z.segment(8, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
+    // }
+    // if (z.segment(12, 4).norm() == 0){
+    //     armor = calcArmor(xc, yc, z2, r2, yaw + 3*M_PI/2);
+    //     z.segment(12, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
+    // }
+    // 看不见的装甲板的位姿由能看见的装甲板估计
+    if (z.segment(0, 4) != Eigen::VectorXd::Zero(4)){
+        armor = calcArmor(xc, yc, z(2), r1, z(3) + M_PI);
+        z.segment(8, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
+    }else if (z.segment(8, 4) != Eigen::VectorXd::Zero(4)){
+        armor = calcArmor(xc, yc, z(10), r1, z(11) - M_PI);
         z.segment(0, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
     }
-    if (z.segment(4, 4).norm() == 0){
-        armor = calcArmor(xc, yc, z2, r2, yaw + M_PI/2);
+    if (z.segment(4, 4) != Eigen::VectorXd::Zero(4)){
+        armor = calcArmor(xc, yc, z(6), r2, z(7) + M_PI);
+        z.segment(12, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
+    }else if (z.segment(12, 4) != Eigen::VectorXd::Zero(4)){
+        armor = calcArmor(xc, yc, z(14), r2, z(15) - M_PI);
         z.segment(4, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
     }
-    if (z.segment(8, 4).norm() == 0){
-        armor = calcArmor(xc, yc, z1, r1, yaw + M_PI);
+    if (z.segment(0, 4) == Eigen::VectorXd::Zero(4) && z.segment(8, 4) == Eigen::VectorXd::Zero(4)){
+        armor = calcArmor(xc, yc, z1, r1, z(7) - M_PI/2);
+        z.segment(0, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
+        armor = calcArmor(xc, yc, z1, r1, z(7) + M_PI/2);
         z.segment(8, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
     }
-    if (z.segment(12, 4).norm() == 0){
-        armor = calcArmor(xc, yc, z2, r2, yaw + 3*M_PI/2);
+    if (z.segment(4, 4) == Eigen::VectorXd::Zero(4) && z.segment(12, 4) == Eigen::VectorXd::Zero(4)){
+        armor = calcArmor(xc, yc, z2, r2, z(3) + M_PI/2);
+        z.segment(4, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
+        armor = calcArmor(xc, yc, z2, r2, z(3) - M_PI/2);
         z.segment(12, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
     }
-    // 看不见的装甲板的位姿由能看见的装甲板估计
-    // if (z.segment(0, 4) != Eigen::VectorXd::Zero(4)){
-    //     armor = calcArmor(xc, yc, z(2), r1, z(3) + M_PI);
-    //     z.segment(8, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
-    // }else if (z.segment(8, 4) != Eigen::VectorXd::Zero(4)){
-    //     armor = calcArmor(xc, yc, z(10), r1, z(11) - M_PI);
-    //     z.segment(0, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
-    // }
-    // if (z.segment(4, 4) != Eigen::VectorXd::Zero(4)){
-    //     armor = calcArmor(xc, yc, z(6), r2, z(7) + M_PI);
-    //     z.segment(12, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
-    // }else if (z.segment(12, 4) != Eigen::VectorXd::Zero(4)){
-    //     armor = calcArmor(xc, yc, z(14), r2, z(15) - M_PI);
-    //     z.segment(4, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
-    // }
-    // if (z.segment(0, 4) == Eigen::VectorXd::Zero(4) && z.segment(8, 4) == Eigen::VectorXd::Zero(4)){
-    //     armor = calcArmor(xc, yc, z1, r1, z(7) - M_PI/2);
-    //     z.segment(0, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
-    //     armor = calcArmor(xc, yc, z1, r1, z(7) + M_PI/2);
-    //     z.segment(8, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
-    // }
-    // if (z.segment(4, 4) == Eigen::VectorXd::Zero(4) && z.segment(12, 4) == Eigen::VectorXd::Zero(4)){
-    //     armor = calcArmor(xc, yc, z2, r2, z(3) + M_PI/2);
-    //     z.segment(4, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
-    //     armor = calcArmor(xc, yc, z2, r2, z(3) - M_PI/2);
-    //     z.segment(12, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
-    // }
 }
 
 void Tracker::create_new_ekf(Armor &armor){

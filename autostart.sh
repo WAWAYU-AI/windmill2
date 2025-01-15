@@ -5,4 +5,5 @@ mkdir build
 cd build
 cmake ..
 make -j8
+chmod +777 restart.sh
 bash ../restart.sh

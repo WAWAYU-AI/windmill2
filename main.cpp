@@ -18,7 +18,7 @@
 #include <unistd.h>
 #include <filesystem>
 
-#define RESIZE 0.5
+#define RESIZE 0.6
 
 // 全局变量参数，这个参数存储着全部的需要的参数
 GlobalParam gp;

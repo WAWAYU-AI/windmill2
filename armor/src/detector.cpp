@@ -112,7 +112,7 @@ Detector::Detector(GlobalParam &gp)
     this->classifier =
         std::make_unique<NumberClassifier>(model_path, label_path, num_threshold, ignore_classes);
 #ifdef APRILTAG
-    apriltagDetector = new ApriltagDetector(75, gp.fx, gp.fy, gp.cx, gp.cy, gp.k1, gp.k2, gp.p1, gp.p2, gp.k3); // 初始化apriltag检测器
+    apriltagDetector = new ApriltagDetector(75, gp.fx, gp.fy, gp.cx, gp.cy, gp.k1, gp.k2, gp.k3, gp.p1, gp.p2); // 初始化apriltag检测器
 #endif
 }
 
@@ -150,6 +150,10 @@ std::vector<UnsolvedArmor> Detector::detect(cv::Mat &input, const int color)
     // }
 #endif
     armors_ = matchLights(lights_);
+    for (auto &armor : armors_){
+        refine_corner(armor.left_light, input);
+        refine_corner(armor.right_light, input);
+    }
     if (!armors_.empty())
     {
         classifier->extractNumbers(input, armors_, this->detect_color);
@@ -157,10 +161,6 @@ std::vector<UnsolvedArmor> Detector::detect(cv::Mat &input, const int color)
         find_apriltag(input, armors_);
 #endif
         classifier->classify(armors_);
-    }
-    for (auto &armor : armors_){
-        refine_corner(armor.left_light, input);
-        refine_corner(armor.right_light, input);
     }
     return armors_;
 }
@@ -355,8 +355,8 @@ void Detector::drawResults(cv::Mat &img)
     // Draw Lights
     for (const auto &light : lights_)
     {
-        cv::circle(img, light.top, 3, cv::Scalar(255, 255, 255), 1);
-        cv::circle(img, light.bottom, 3, cv::Scalar(255, 255, 255), 1);
+        //cv::circle(img, light.top, 3, cv::Scalar(255, 255, 255), 1);
+        //cv::circle(img, light.bottom, 3, cv::Scalar(255, 255, 255), 1);
         auto line_color = light.color == RED ? cv::Scalar(255, 255, 0) : cv::Scalar(255, 0, 255);
         cv::line(img, light.top, light.bottom, line_color, 1);
     }
@@ -377,10 +377,10 @@ void Detector::drawResults(cv::Mat &img)
     }
 }
 
-cv::Point2d Detector::find_symmetry_axis(cv::Mat &src){
+cv::Point2f Detector::find_symmetry_axis(cv::Mat &src){
     cv::Mat roi = src.clone();
     roi.convertTo(roi, CV_32F);
-    cv::normalize(roi, roi, 0, 50, cv::NORM_MINMAX);
+    cv::normalize(roi, roi, 0, 25, cv::NORM_MINMAX);
     std::vector<cv::Point2f> points;
     for (int i = 0; i < roi.rows; i++) {
         for (int j = 0; j < roi.cols; j++) {
@@ -393,8 +393,8 @@ cv::Point2d Detector::find_symmetry_axis(cv::Mat &src){
     // PCA (Principal Component Analysis)
     auto pca = cv::PCA(points_mat, cv::Mat(), cv::PCA::DATA_AS_ROW);
     // Get the symmetry axis
-    cv::Point2d axis =
-        cv::Point2d(pca.eigenvectors.at<double>(0, 0), pca.eigenvectors.at<double>(0, 1));
+    cv::Point2f axis =
+        cv::Point2f(pca.eigenvectors.at<float>(0, 0), pca.eigenvectors.at<float>(0, 1));
     // Normalize the axis
     axis = axis / cv::norm(axis);
     if (axis.y < 0) {
@@ -404,7 +404,7 @@ cv::Point2d Detector::find_symmetry_axis(cv::Mat &src){
 }
 
 bool Detector::refine_corner(Light &tar, cv::Mat &src){
-    const double scale = 0.2;
+    const float scale = 0.5;
     if (tar.width < 10) return false;
     cv::Rect box = tar.boundingRect();    // 获得灯条目标区域
     box = cv::Rect(box.x - box.width * scale, box.y - box.height * scale, box.width * (1 + 2 * scale), box.height * (1 + 2 * scale));
@@ -416,22 +416,23 @@ bool Detector::refine_corner(Light &tar, cv::Mat &src){
 #ifdef DEBUGREFINE
     cv::imshow("raw", roi);
 #endif
+    // cv::cvtColor(roi, roi, cv::COLOR_BGR2GRAY);
     cv::cvtColor(roi, roi, cv::COLOR_BGR2HSV);      // 转换到亮度图
     cv::Mat channel[3];
     cv::split(roi, channel);
     roi = channel[2];
     cv::GaussianBlur(roi, roi, cv::Size(3,3), 1, 1);
-
-    cv::Mat mask = roi.clone();                     // 求均值与质心
-    cv::threshold(mask, mask, 50, 255, cv::THRESH_BINARY);
-    double mean_val = cv::mean(roi, mask)[0];
+    int threshold = (detect_color == RED ? gp->red_threshold : gp->blue_threshold) + 10;  // 求均值与质心
+    cv::threshold(roi, roi, threshold, 255, cv::THRESH_TOZERO);
+    cv::imshow("11",roi);
+    
+    double mean_val = cv::mean(roi)[0];
     cv::Moments moments = cv::moments(roi, false);
     cv::Point2f centroid = cv::Point2f(moments.m10 / moments.m00, moments.m01 / moments.m00);
-    cv::threshold(roi, roi, mean_val / 2, 255, cv::THRESH_TOZERO);
-    cv::Point2d axis = find_symmetry_axis(roi);    // 计算对称轴
+    cv::Point2f axis = find_symmetry_axis(roi);    // 计算对称轴
 
-    constexpr float START = 0.4;
-    constexpr float END = 0.6;
+    constexpr float START = 0.40;
+    constexpr float END = 0.60;
 
     auto inImage = [&src](const cv::Point &point) -> bool {
         return point.x >= 0 && point.x < src.cols && point.y >= 0 && point.y < src.rows;
@@ -442,7 +443,7 @@ bool Detector::refine_corner(Light &tar, cv::Mat &src){
 
     float L = tar.length;
     // Select multiple corner candidates and take the average as the final corner
-    int n = tar.width - 2;
+    int n = tar.width * 0.75 - 2;
     int half_n = std::round(n / 2);
     for (int k = 1; k >= -1; k-=2){    
         std::vector<cv::Point2f> candidates;
@@ -474,8 +475,8 @@ bool Detector::refine_corner(Light &tar, cv::Mat &src){
         }
         if (!candidates.empty()) {
             cv::Point2f result = std::accumulate(candidates.begin(), candidates.end(), cv::Point2f(0, 0));
-            if(k==1) tar.top = result / static_cast<float>(candidates.size()) + cv::Point2f(box.x, box.y);
-            else tar.bottom = result / static_cast<float>(candidates.size()) + cv::Point2f(box.x, box.y);
+            if(k==1) tar.bottom = result / static_cast<float>(candidates.size()) + cv::Point2f(box.x, box.y);
+            else tar.top = result / static_cast<float>(candidates.size()) + cv::Point2f(box.x, box.y);
         }
     }
     return true;
