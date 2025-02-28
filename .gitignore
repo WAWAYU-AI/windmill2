@@ -9,8 +9,8 @@ log
 MvSdkLog
 
 # video
-*.mp4
-*.avi
+video/result/*
+video/source/*
 
 # yaml
-*.yaml
+config/*.yaml
