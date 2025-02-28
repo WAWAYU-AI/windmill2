@@ -237,6 +237,9 @@ struct GlobalParam
     double k3 = 0;
     double p1 = 0;
     double p2 = 0;
+    double vector_x = 0;
+    double vector_y = 0;
+    double vector_z = 0;
 
     //============================装甲板识别相关参数============================//
     double min_ratio = 0.02;
@@ -273,7 +276,10 @@ struct GlobalParam
     double r_yaw = 0.016;  
     double s2p0xyr = 1000;
     double s2p0yaw = 1;
-    double r_initial = 450;
+    double r_initial = 300;
+
+    double r_yaw_corrected = 1;
+    double resize = 1;
 
     double small_armor_a = 67.5; // 小装甲板的长
     double small_armor_b = 28.5; // 小装甲板的宽

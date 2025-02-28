@@ -7,3 +7,10 @@ build
 # log
 log
 MvSdkLog
+
+# video
+*.mp4
+*.avi
+
+# yaml
+*.yaml

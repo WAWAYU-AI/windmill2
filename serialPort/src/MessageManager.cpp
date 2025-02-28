@@ -48,10 +48,10 @@ MessageManager::MessageManager(GlobalParam &gp)
     this->currentFrames = 0;
 #endif
 #ifdef RECORDVIDEO
-    std::string output_address = "../video/";
-    int idx = 1;
-    int coder = cv::VideoWriter::fourcc('m', 'p', '4', 'v');
-    this->vw = new cv::VideoWriter(output_address + std::to_string(idx) + ".MP4", coder, 25.0, cv::Size(1080, 720), true);
+    // std::string output_address = "../video/";
+    // int idx = 1;
+    // int coder = cv::VideoWriter::fourcc('m', 'p', '4', 'v');
+    // this->vw = new cv::VideoWriter(output_address + std::to_string(idx) + ".MP4", coder, 25.0, cv::Size(1080, 720), true);
 #endif
 }
 MessageManager::~MessageManager()
@@ -205,7 +205,6 @@ void MessageManager::recordFrame(cv::Mat &pic)
         frame_accum = 0;
         vw->release();
         delete vw;
-        std::string video_address = "../video/v1.avi";
         std::string output_address = "../video/";
         int idx = 1;
         int coder = cv::VideoWriter::fourcc('m', 'p', '4', 'v');

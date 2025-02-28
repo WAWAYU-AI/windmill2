@@ -1,5 +1,6 @@
 #include "tracker.hpp"
 #include "globalParam.hpp"
+#include "opencv2/core/mat.hpp"
 
 // STD
 
@@ -93,15 +94,27 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
                 z_vector_list.erase(z_vector_list.begin() + i);
                 lost_frame_count.erase(lost_frame_count.begin() + i);
                 i--;
+                continue;
             }
         } else {
             lost_frame_count[i] = 0;
             refine_zVector(i);
             ekf_list[i].update(z_vector_list[i]);
         }
+        if (ekf_list[i].get_X()(7)<100 || ekf_list[i].get_X()(8)<100 || abs(ekf_list[i].get_X()(10)) > 20){
+            ekf_list.erase(ekf_list.begin() + i);
+            z_vector_list.erase(z_vector_list.begin() + i);
+            lost_frame_count.erase(lost_frame_count.begin() + i);
+            i--;
+        }
     }
     if (ekf_list.size() > 0){
         auto x = ekf_list[0].get_X();
+        // if (sqrt(pow(abs(ts.message.v_x - x(1)),2) + pow(abs(ts.message.v_y - x(3)),2))/dt > 5000) { // 加速度过大，不瞄准
+        //     ts.message.crc = 0;
+        // }else{
+            ts.message.crc = 1;
+        // }
         ts.message.x_c = x(0);
         ts.message.v_x = x(1);
         ts.message.y_c = x(2);
@@ -113,8 +126,18 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
         ts.message.r2 = x(8);
         ts.message.yaw_a = x(9);
         ts.message.vyaw = x(10);
-        ts.message.crc = 1;
     }else{
+        ts.message.x_c = 0;
+        ts.message.v_x = 0;
+        ts.message.y_c = 0;
+        ts.message.v_y = 0;
+        ts.message.z1 = 0;
+        ts.message.z2 = 0;
+        ts.message.v_z = 0;
+        ts.message.r1 = 0;
+        ts.message.r2 = 0;
+        ts.message.yaw_a = 0;
+        ts.message.vyaw = 0;
         ts.message.crc = 0;
     }
 }
@@ -150,6 +173,7 @@ void Tracker::draw(const std::vector<Armor> armor_curr){
         cv::line(img, cv::Point(a.y/scale + 600, (a.x-bias)/scale), cv::Point(b.y/scale + 600, (b.x-bias)/scale), cv::Scalar(255, 0 ,0), 2);
         cv::line(img, cv::Point(c.y/scale + 600, (c.x-bias)/scale), cv::Point(armor.position(1)/scale + 600,(armor.position(0)-bias)/scale), cv::Scalar(255, 0 ,0), 2);
     }
+    cv::resize(img, img, cv::Size(img.size[1] * gp->resize, img.size[0] * gp->resize));
     cv::imshow("track",img);
 }
 
@@ -176,31 +200,43 @@ void Tracker::refine_zVector(int ekf_id){
     //     z.segment(12, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
     // }
     // 看不见的装甲板的位姿由能看见的装甲板估计
+    r_xy_correction[0] = r_xy_correction[1] = r_xy_correction[2] = r_xy_correction[3] = 1;
     if (z.segment(0, 4) != Eigen::VectorXd::Zero(4)){
-        armor = calcArmor(xc, yc, z(2), r1, z(3) + M_PI);
+        armor = calcArmor(xc, yc, z(2), sqrt(pow(z(0)-xc, 2) + pow(z(1)-yc, 2)), z(3) + M_PI);
         z.segment(8, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
+        r_xy_correction[2] *= 10;
     }else if (z.segment(8, 4) != Eigen::VectorXd::Zero(4)){
-        armor = calcArmor(xc, yc, z(10), r1, z(11) - M_PI);
+        armor = calcArmor(xc, yc, z(10), sqrt(pow(z(8)-xc, 2) + pow(z(9)-yc, 2)), z(11) - M_PI);
         z.segment(0, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
+        r_xy_correction[0] *= 10;
     }
     if (z.segment(4, 4) != Eigen::VectorXd::Zero(4)){
-        armor = calcArmor(xc, yc, z(6), r2, z(7) + M_PI);
+        armor = calcArmor(xc, yc, z(6), sqrt(pow(z(4)-xc, 2) + pow(z(5)-yc, 2)), z(7) + M_PI);
         z.segment(12, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
+        r_xy_correction[3] *= 10;
     }else if (z.segment(12, 4) != Eigen::VectorXd::Zero(4)){
-        armor = calcArmor(xc, yc, z(14), r2, z(15) - M_PI);
+        armor = calcArmor(xc, yc, z(14), sqrt(pow(z(12)-xc, 2) + pow(z(13)-yc, 2)), z(15) - M_PI);
         z.segment(4, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
+        r_xy_correction[1] *= 10;
     }
+    r_yaw_corrected = gp -> r_yaw;
     if (z.segment(0, 4) == Eigen::VectorXd::Zero(4) && z.segment(8, 4) == Eigen::VectorXd::Zero(4)){
         armor = calcArmor(xc, yc, z1, r1, z(7) - M_PI/2);
         z.segment(0, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
         armor = calcArmor(xc, yc, z1, r1, z(7) + M_PI/2);
         z.segment(8, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
+        r_yaw_corrected *= 10;
+        r_xy_correction[0] *= 10;
+        r_xy_correction[2] *= 10;
     }
     if (z.segment(4, 4) == Eigen::VectorXd::Zero(4) && z.segment(12, 4) == Eigen::VectorXd::Zero(4)){
         armor = calcArmor(xc, yc, z2, r2, z(3) + M_PI/2);
         z.segment(4, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
         armor = calcArmor(xc, yc, z2, r2, z(3) - M_PI/2);
         z.segment(12, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
+        r_yaw_corrected *= 10;
+        r_xy_correction[1] *= 10;
+        r_xy_correction[3] *= 10;
     }
 }
 
@@ -220,6 +256,60 @@ void Tracker::create_new_ekf(Armor &armor){
     armors_pred.push_back(calcArmor(x0(0), x0(2), x0(5), x0(8), x0(9) + 3*M_PI/2));
 }
 
+void Tracker::calc_armor_back(std::vector<Armor> &armors, Translator &ts){
+    if (ekf_list.size() == 0)return;
+    auto x = ekf_list[0].get_X();
+    double xc = x(0), yc = x(2), z1 = x(4), z2 = x(5), r1 = x(7), r2 = x(8), yaw = x(9);
+    armors = {
+        calcArmor(xc, yc, z1, r1, yaw),
+        calcArmor(xc, yc, z2, r2, yaw + M_PI/2),
+        calcArmor(xc, yc, z1, r1, yaw + M_PI),
+        calcArmor(xc, yc, z2, r2, yaw + 3*M_PI/2)
+    };
+    Eigen::Matrix3d m_pitch(3, 3);//pitch旋转矩阵
+    Eigen::Matrix3d m_yaw(3, 3);//yaw旋转矩阵
+    m_yaw << cos(ts.message.yaw), -sin(ts.message.yaw), 0, sin(ts.message.yaw), cos(ts.message.yaw), 0, 0, 0, 1;
+    m_pitch << cos(ts.message.pitch), 0, -sin(ts.message.pitch), 0, 1, 0, sin(ts.message.pitch), 0, cos(ts.message.pitch);
+    Eigen::MatrixXd r_mat = m_yaw * m_pitch;//旋转矩阵
+    Eigen::Matrix3d rotation;
+    rotation << 0, 0, 1,
+                -1, 0, 0,
+                0, -1, 0;
+    Eigen::Matrix3d rMat = r_mat * rotation;
+    Eigen::Vector3d tVec = r_mat * Eigen::Vector3d(gp->vector_x, gp->vector_y, gp->vector_z);
+    for (auto &armor : armors){
+        armor.position = rMat.inverse() * (armor.position - tVec);
+        armor.center = cv::Point3f(armor.position(0), armor.position(1), armor.position(2));
+        armor.yaw -= ts.message.yaw;
+        double yaw = - armor.yaw;
+        double pitch = M_PI - (15 * M_PI / 180 + ts.message.pitch);
+        // printf("pitch: %f, yaw: %f\n", pitch, yaw);
+        Eigen::Matrix<double, 3, 3> mat_x;
+        mat_x << double(1), double(0), double(0),
+                 double(0), cos(pitch), -sin(pitch),
+                 double(0), sin(pitch), cos(pitch);
+        Eigen::Matrix<double, 3, 3> mat_y;
+        mat_y << cos(yaw), double(0), sin(yaw),
+                double(0), double(1), double(0),
+                -sin(yaw), double(0), cos(yaw);
+        Eigen::Matrix<double, 3, 3> rotation_matrix = mat_y * mat_x;
+        // std::cout << "rotation_matrix:\n" << rotation_matrix << std::endl;
+        cv::Mat rVec;
+        cv::eigen2cv(rotation_matrix, rVec);
+        cv::Rodrigues(rVec, rVec);
+        armor.angle = cv::Point3f(rVec.at<double>(0), rVec.at<double>(1), rVec.at<double>(2));
+    }
+
+        // cv::Mat mat_x = (cv::Mat_<double>(3, 3) << 1, 0, 0, 0, cos(pitch), -sin(pitch), 0, sin(pitch), cos(pitch));
+        // cv::Mat mat_y = (cv::Mat_<double>(3, 3) << cos(yaw), 0, sin(yaw), 0, 1, 0, -sin(yaw), 0, cos(yaw));
+        // cv::Mat rotation_matrix = mat_y * mat_x;
+        // cv::Mat rVec;
+        // cv::eigen2cv(rotation_matrix, rVec);
+        // cv::Rodrigues(rotation_matrix, rVec);
+        // armor.angle = cv::Point3f(rVec.at<float>(0), rVec.at<float>(1), rVec.at<float>(2));
+    // }
+}
+
 Tracker::Tracker(GlobalParam &gp){
     this->gp = &gp;
 
@@ -230,8 +320,8 @@ Tracker::Tracker(GlobalParam &gp){
         Eigen::VectorXd x_new = x;
         x_new(0) += x(1) * dt; // 更新xc
         x_new(2) += x(3) * dt; // 更新yc
-        x_new(4) += x(6) * dt; // 更新z1
-        x_new(5) += x(6) * dt; // 更新z2
+        // x_new(4) += x(6) * dt; // 更新z1
+        // x_new(5) += x(6) * dt; // 更新z2
         x_new(9) += x(10)* dt; // 更新yaw
         return x_new;
     };
@@ -246,9 +336,9 @@ Tracker::Tracker(GlobalParam &gp){
               0,   1,   0,   0,   0,   0,   0,   0,   0,   0,   0,
               0,   0,   1,   dt,  0,   0,   0,   0,   0,   0,   0,
               0,   0,   0,   1,   0,   0,   0,   0,   0,   0,   0,
-              0,   0,   0,   0,   1,   0,   dt,  0,   0,   0,   0,
-              0,   0,   0,   0,   0,   1,   dt,  0,   0,   0,   0,
-              0,   0,   0,   0,   0,   0,   1,   0,   0,   0,   0,
+              0,   0,   0,   0,   1,   0,   0,   0,   0,   0,   0,
+              0,   0,   0,   0,   0,   1,   0,   0,   0,   0,   0,
+              0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
               0,   0,   0,   0,   0,   0,   0,   1,   0,   0,   0,
               0,   0,   0,   0,   0,   0,   0,   0,   1,   0,   0,
               0,   0,   0,   0,   0,   0,   0,   0,   0,   1,   dt,
@@ -332,9 +422,9 @@ Tracker::Tracker(GlobalParam &gp){
               q_x_vx, q_vx_vx,0,      0,      0,      0,      0,      0,      0,      0,      0,
               0,      0,      q_x_x,  q_x_vx, 0,      0,      0,      0,      0,      0,      0,
               0,      0,      q_x_vx, q_vx_vx,0,      0,      0,      0,      0,      0,      0,
-              0,      0,      0,      0,      q_x_x,  0,      q_x_vx, 0,      0,      0,      0,
-              0,      0,      0,      0,      0,      q_x_x,  q_x_vx, 0,      0,      0,      0,
-              0,      0,      0,      0,      q_x_vx, q_x_vx, q_vx_vx,0,      0,      0,      0,
+              0,      0,      0,      0,      q_x_x,  0,      0,      0,      0,      0,      0,
+              0,      0,      0,      0,      0,      q_x_x,  0,      0,      0,      0,      0,
+              0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,
               0,      0,      0,      0,      0,      0,      0,      q_r,    0,      0,      0,
               0,      0,      0,      0,      0,      0,      0,      0,      q_r,    0,      0,
               0,      0,      0,      0,      0,      0,      0,      0,      0,      q_y_y,  q_y_vy,
@@ -348,10 +438,11 @@ Tracker::Tracker(GlobalParam &gp){
     {
         Eigen::DiagonalMatrix<double, 16> r;
         double xy = gp.r_xy_factor;
-        r.diagonal() << abs(xy * z[0]),  abs(xy * z[1]),  gp.r_z, gp.r_yaw,
-                        abs(xy * z[4]),  abs(xy * z[5]),  gp.r_z, gp.r_yaw,
-                        abs(xy * z[8]),  abs(xy * z[9]),  gp.r_z, gp.r_yaw,
-                        abs(xy * z[12]), abs(xy * z[13]), gp.r_z, gp.r_yaw; // 定义观测噪声
+        xy *= xy;
+        r.diagonal() << abs(xy * z[0]*z[0]),  abs(xy * z[1]*z[1]),  gp.r_z, r_yaw_corrected,
+                        abs(xy * z[4]*z[4]),  abs(xy * z[5]*z[5]),  gp.r_z, r_yaw_corrected,
+                        abs(xy * z[8]*z[8]),  abs(xy * z[9]*z[9]),  gp.r_z, r_yaw_corrected,
+                        abs(xy * z[12]*z[12]), abs(xy * z[13]*z[13]), gp.r_z, r_yaw_corrected; // 定义观测噪声
         return r;
     };
 

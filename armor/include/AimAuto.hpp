@@ -28,15 +28,17 @@ private:
     GlobalParam *gp;
     Detector *detector;
     Tracker *tracker;
+    Armor last_armor;
     void pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armor &tar, int number);
-    void draw_armor_back(cv::Mat &src, Armor &armor, int number);
+    void draw_armor_back(cv::Mat &src, Armor &armor, int number, cv::Scalar color = cv::Scalar(255, 255, 255));
     void optimizeYawZ(
         const std::vector<cv::Point3f>& objPoints,
         const std ::vector<cv::Point2f>& imgPoints,
         double known_x,
         double known_y,
+        double known_z,
+        double camera_pitch,
         double &yaw,
-        float &z,
         const cv::Mat& K,
         const cv::Mat& dist
     );

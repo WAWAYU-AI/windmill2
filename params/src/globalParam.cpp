@@ -38,6 +38,9 @@ void GlobalParam::initGlobalParam(const int color)
     fs["k3"] >> k3;
     fs["p1"] >> p1;
     fs["p2"] >> p2;
+    fs["vector_x"] >> vector_x;
+    fs["vector_y"] >> vector_y;
+    fs["vector_z"] >> vector_z;
     fs.release();
     
     // 打开AimautoConfig配置文件
@@ -61,6 +64,7 @@ void GlobalParam::initGlobalParam(const int color)
     fs["small_armor_b"] >> small_armor_b; // 小装甲板的宽
     fs["big_armor_a"] >> big_armor_a;     // 大装甲板的长
     fs["big_armor_b"] >> big_armor_b;     // 大装甲板的宽
+    fs["resize"] >> resize;
     fs.release();
 
     // 打开DetectionConfig配置文件
@@ -119,6 +123,9 @@ void GlobalParam::saveGlobalParam()
     fs << "k3" << k3;
     fs << "p1" << p1;
     fs << "p2" << p2;
+    fs << "vector_x" << vector_x;
+    fs << "vector_y" << vector_y;
+    fs << "vector_z" << vector_z;
     fs.release();
 
     // 打开AimautoConfig配置文件以写入参数
@@ -142,6 +149,7 @@ void GlobalParam::saveGlobalParam()
     fs << "small_armor_b" << small_armor_b; // 小装甲板的宽
     fs << "big_armor_a" << big_armor_a;     // 大装甲板的长
     fs << "big_armor_b" << big_armor_b;     // 大装甲板的宽
+    fs << "resize" << resize;
     fs.release();              
 
     // 打开DetectionConfig配置文件以写入参数

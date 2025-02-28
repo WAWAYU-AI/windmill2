@@ -50,8 +50,8 @@ class Detector{
         std::vector<Light> findLights(const cv::Mat &rbg_img, const cv::Mat &binary_img);
         std::vector<UnsolvedArmor> matchLights(const std::vector<Light> &lights);
         bool refine_corner(Light &tar, cv::Mat &src);
-        cv::Point2f find_symmetry_axis(cv::Mat &src);
-
+        // cv::Point2f find_symmetry_axis(cv::Mat &src);
+        cv::Point2d find_symmetry_axis(cv::Mat &src, cv::Mat &mask);
         // For debug usage
         cv::Mat getAllNumbersImage();
         void drawResults(cv::Mat &img);

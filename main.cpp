@@ -15,10 +15,21 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <pthread.h>
+#include <ratio>
+#include <string>
 #include <unistd.h>
 #include <filesystem>
 
-#define RESIZE 0.6
+
+#define RECORD_FRAME_COUNT 1800
+
+std::string GetTime(){
+    std::time_t now = std::time(nullptr);
+    std::tm *p_tm = std::localtime(&now);
+    char time_str[50];
+    std::strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M", p_tm);
+    return time_str;
+}
 
 // 全局变量参数，这个参数存储着全部的需要的参数
 GlobalParam gp;
@@ -55,23 +66,11 @@ void *OperationFunction(void *arg);
 
 int main(int argc, char **argv)
 {
-    // 初始化Glog并设置部分标志位
-    // google::InitGoogleLogging(argv[0]);
-    // 设置Glog输出的log文件写在address中log_address对应的地址下
-    // FLAGS_log_dir = "../log";
-    printf("welcome\n");
-    // 实例化通信串口类
-    printf("222\n");
     SerialPort *serialPort = new SerialPort(argv[1]);
-    printf("333\n");
-    // 设置通信串口对象初始值
     serialPort->InitSerialPort(int(*argv[2] - '0'), 8, 1, 'N');
-    printf("555\n");
 #ifndef NOPORT
     Translator temp_translator;
-    printf("666\n");
     MManager.read(temp_translator, *serialPort);
-    printf("555\n");
     // 通过电控发来的标志位是0～4还是5～9来确定是红方还是蓝方，其中0～4是红方，5～9是蓝方
     MManager.initParam(temp_translator.message.status / 5 == 0 ? RED : BLUE);
 #else
@@ -105,8 +104,15 @@ int main(int argc, char **argv)
 
 void *ReadFunction(void *arg) // 读线程
 {
+#ifdef RECORDVIDEO
+    cv::VideoWriter *source_recorder = NULL;
+    std::string path = "../video/source/";
+    path = path + GetTime() + "/";
+    std::filesystem::create_directories(path);
+#endif
     int current_buffer = 0; // 当前使用的缓冲区
-    int cnt = 0;
+    int cnt = RECORD_FRAME_COUNT;
+    int idx = 0;
 #ifndef VIRTUALGRAB
     camera.init();
 #endif 
@@ -114,9 +120,8 @@ void *ReadFunction(void *arg) // 读线程
     SerialPort *serialPort = (SerialPort *)arg;
     while (1)
     {   
-        pthread_mutex_lock(&Mutex);
-        // usleep(1000);
-        // printf("read thread is running %d %d\n", ++cnt, current_buffer);
+        chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
+        // pthread_mutex_lock(&Mutex);
         MManager.read(buffers[current_buffer].translator, *serialPort);
         if (buffers[current_buffer].translator.message.status % 5 != 0)
         {
@@ -154,24 +159,45 @@ void *ReadFunction(void *arg) // 读线程
 #endif
         camera.get_pic(&buffers[current_buffer].pic, gp);
         buffers[current_buffer].data_ready = true;
-
 #else
         MManager.getFrame(buffers[current_buffer].pic, buffers[current_buffer].translator);
 #endif
-        // usleep(200 * 1000);
-        pthread_mutex_unlock(&Mutex);
+        cv::Mat pic = buffers[current_buffer].pic;
+        // pthread_mutex_unlock(&Mutex);
         // 切换缓冲区
         current_buffer = (current_buffer + 1) % 2;
         
-        
+        chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+#ifdef RECORDVIDEO
+        cnt ++;
+        if (cnt > RECORD_FRAME_COUNT && idx <= 100)
+        {
+            cnt = 0;
+            if(source_recorder != NULL){
+                source_recorder->release();
+                delete source_recorder;
+            }
+            int coder = cv::VideoWriter::fourcc('H', '2', '6', '4');
+            idx ++;
+            source_recorder = new cv::VideoWriter(path + std::to_string(idx) + ".mp4", coder, 60.0, cv::Size(pic.size[1], pic.size[0]), true);
+        }
+        if(idx <= 100) source_recorder->write(pic);
+#endif
         pthread_barrier_wait(&Barrier);
-        // printf("read thread is end %d %d\n", cnt, current_buffer);
+        printf("read   duration: %ld ms\n", duration);
     }
     return NULL;
 }
 
 void *OperationFunction(void *arg)
 {
+#ifdef RECORDVIDEO
+    cv::VideoWriter *result_recorder = NULL;
+    std::string path = "../video/result/";
+    path = path + GetTime() + "/";
+    std::filesystem::create_directories(path);
+#endif
     SerialPort *serialPort = (SerialPort *)arg;
     // 实例化自瞄类
     AimAuto aim(&gp);
@@ -182,6 +208,7 @@ void *OperationFunction(void *arg)
     double dt = 0;
     double last_time_stamp = 0;
 #ifdef SHOW_FPS
+    int fps = 0;
     int frame_count = 0;
     double fps_time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
 #endif
@@ -200,13 +227,13 @@ void *OperationFunction(void *arg)
     //========================//
     uint8_t error_times{0};
     int processing_buffer = 1; // 当前处理的缓冲区
-    int cnt = 0;
+    int cnt = RECORD_FRAME_COUNT;
+    int idx = 0;
     int empty_frame_count = 0;
     // cv::waitKey(200);
     while (1)
     {
-        // usleep(1000);
-        // printf("operation thread is running %d  %d\n", ++cnt, processing_buffer);
+        chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
 #ifndef NOPORT
         translator = buffers[processing_buffer].translator;
         // translator.message.pitch = 0;
@@ -239,9 +266,6 @@ void *OperationFunction(void *arg)
         }else{
             empty_frame_count = 0;
         }
-#ifdef RECORDVIDEO // 如果开启录制视频，使用MManager类进行录制
-        MManager.recordFrame(pic);
-#endif
         // 自瞄模式
         if (translator.message.status % 5 == 0)
         {
@@ -250,14 +274,18 @@ void *OperationFunction(void *arg)
             translator.message.latency = (time_stamp - last_time_stamp) * 1000;
             MManager.write(translator, *serialPort);
 // #ifdef DEBUGMODE
-            // drawStat(points3d, times, translator);
+#ifdef SHOW_FPS
+            cv::putText(pic,"FPS: " + to_string(fps), cv::Point(1000, 50), cv::FONT_HERSHEY_SIMPLEX, 1.5, cv::Scalar(255, 255, 255), 2);
+            printf("FPS: %d  \tLatency: %.3f ms\n", fps, translator.message.latency);
+#endif
+#ifdef DEBUGMODE
             UI.receive_pic(pic);
             UI.windowsManager(key, debug_t);
             cv::Mat tmp;
-            cv::resize(pic, tmp, cv::Size((int)pic.size[1] * RESIZE, (int)pic.size[0] * RESIZE), cv::INTER_LINEAR);
+            cv::resize(pic, tmp, cv::Size((int)pic.size[1] * gp.resize, (int)pic.size[0] * gp.resize), cv::INTER_LINEAR);
             cv::imshow("aimauto__", tmp);
             // usleep(200 * 1000);
-// #endif
+#endif
 
 #ifndef DEBUGMODE
 #ifdef SSH
@@ -296,14 +324,33 @@ void *OperationFunction(void *arg)
         auto now_time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
         if (now_time_stamp - fps_time_stamp >= 1)
         {
-            printf("FPS: %d  \tLatency: %.3f ms\n", frame_count, translator.message.latency);
+            fps = frame_count;
+            // printf("FPS: %d  \tLatency: %.3f ms\n", frame_count, translator.message.latency);
             frame_count = 0;
             fps_time_stamp = now_time_stamp;
         }
 #endif
+        chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+#ifdef RECORDVIDEO
+        cv::resize(pic, pic, cv::Size(1080, 720), cv::INTER_LINEAR);
+        cnt ++;
+        if (cnt > RECORD_FRAME_COUNT && idx <= 100)
+        {
+            cnt = 0;
+            if(result_recorder != NULL){
+                result_recorder->release();
+                delete result_recorder;
+            }
+            int coder = cv::VideoWriter::fourcc('H', '2', '6', '4');
+            idx ++;
+            result_recorder = new cv::VideoWriter(path + std::to_string(idx) + ".mp4", coder, 60.0, cv::Size(pic.size[1], pic.size[0]), true);
+        }
+        if(idx <= 100) result_recorder->write(pic);
+
+#endif
         pthread_barrier_wait(&Barrier);
-        // printf("operation thread is end %d  %d\n", cnt, processing_buffer);
-        // printf(gp.color == RED ? "RED" : "BLUE");
+        printf("option duration: %ld ms\n", duration);
     }
     return NULL;
 }

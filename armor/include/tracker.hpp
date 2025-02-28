@@ -14,6 +14,7 @@
 #include <iostream>
 #include <memory>
 #include <opencv2/opencv.hpp>
+#include <opencv2/core/eigen.hpp>
 #include <string>
 
 enum class ArmorsNum { NORMAL_4 = 4, BALANCE_2 = 2, OUTPOST_3 = 3 };
@@ -23,11 +24,13 @@ public:
     Tracker(GlobalParam &gp);
     void track(std::vector<Armor> &armors_curr, Translator &ts, double dt);
     void draw(const std::vector<Armor> armors_curr = std::vector<Armor>());
-    
+    void calc_armor_back(std::vector<Armor> &armors, Translator &ts);
 private:
 
     GlobalParam *gp;
     double dt;
+    double r_xy_correction[4];
+    double r_yaw_corrected;
     std::vector<ExtendedKalmanFilter> ekf_list;
     std::vector<Eigen::VectorXd> z_vector_list;
     std::vector<int> lost_frame_count;
