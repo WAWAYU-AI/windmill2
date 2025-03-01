@@ -125,6 +125,7 @@ AimAuto::~AimAuto()
     delete tracker;
 }
 
+int cnt = 0;
 void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
 {
     std::vector<Armor> tar_list;
@@ -222,6 +223,9 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
                 if (dis < a * 0.5) ts.message.crc = 1;
             }
         }
+        if (ts.message.crc) cnt ++;
+        else cnt = 0;
+        if (cnt < 10) ts.message.crc = 0;
     #ifdef DEBUGMODE
         if (ts.message.crc){
         cv::putText(src, "latency: " + std::to_string(ts.message.latency), cv::Point(1050, 150), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);

@@ -11,6 +11,7 @@ MvSdkLog
 # video
 video/result/*
 video/source/*
+video/record/*
 
 # yaml
 config/*.yaml
