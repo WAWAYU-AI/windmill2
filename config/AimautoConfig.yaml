@@ -1,6 +1,6 @@
 %YAML:1.0
 ---
-cost_threshold: 2000.
+cost_threshold: 1600.
 max_lost_frame: 10.
 s2qxyz: 30.
 s2qyaw: 0.0002
@@ -9,7 +9,7 @@ r_xy_factor: 5.0000000000000000e-05
 r_z: 0.001  
 r_yaw: 5.
 s2p0xyr: 1000.
-s2p0yaw: 20
+s2p0yaw: 50
 r_initial: 300.
 small_armor_a: 6.7500000000000000e+01
 small_armor_b: 28.5

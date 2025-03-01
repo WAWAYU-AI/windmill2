@@ -207,17 +207,19 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
         tracker -> draw(tar_list);
     #endif
     #endif // DEBUGMODE
-        ts.message.crc = 0;
+        if(tar_list.size() > 0) ts.message.crc = 0;
         std::vector<Armor> target_armors;
         tracker -> calc_armor_back(target_armors, ts);
         for (auto &armor : target_armors){
             draw_armor_back(src, armor, 2, cv::Scalar(0, 255, 0));
             for (auto &tar : tar_list){
+                float dyaw = tar.yaw - ts.message.yaw - armor.yaw;
+                if (abs(atan2(sin(dyaw), cos(dyaw))) > 1) continue;
                 cv::Point2f c1 = (tar.apex[0] + tar.apex[1] + tar.apex[2] + tar.apex[3]) / 4;
                 cv::Point2f c2 = (armor.apex[0] + armor.apex[1] + armor.apex[2] + armor.apex[3]) / 4;
                 float dis = cv::norm(c1 - c2);
                 float a = (cv::norm(tar.apex[1] - tar.apex[2]) + cv::norm(tar.apex[3] - tar.apex[0])) / 2;
-                if (dis < a) ts.message.crc = 1;
+                if (dis < a * 0.5) ts.message.crc = 1;
             }
         }
     #ifdef DEBUGMODE
