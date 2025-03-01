@@ -105,10 +105,11 @@ int main(int argc, char **argv)
 void *ReadFunction(void *arg) // 读线程
 {
 #ifdef RECORDVIDEO
-    cv::VideoWriter *source_recorder = NULL;
-    std::string path = "../video/source/";
+    cv::VideoWriter *recorder = NULL;
+    std::string path = "../video/record/";
     path = path + GetTime() + "/";
     std::filesystem::create_directories(path);
+    int coder = cv::VideoWriter::fourcc('H', '2', '6', '4');
 #endif
     int current_buffer = 0; // 当前使用的缓冲区
     int cnt = RECORD_FRAME_COUNT;
@@ -119,7 +120,23 @@ void *ReadFunction(void *arg) // 读线程
     // 传入的参数赋给串口，以获得串口数据
     SerialPort *serialPort = (SerialPort *)arg;
     while (1)
-    {   
+    {
+#ifdef RECORDVIDEO
+        cv::Mat pic = buffers[current_buffer].pic;
+        if(!pic.empty()) cv::resize(pic, pic, cv::Size(720, 540));
+        cnt ++;
+        if (cnt > RECORD_FRAME_COUNT && idx <= 100)
+        {
+            cnt = 0;
+            if(recorder != NULL){
+                recorder->release();
+                delete recorder;
+            }
+            idx ++;
+            recorder = new cv::VideoWriter(path + std::to_string(idx) + ".mp4", coder, 60.0, cv::Size(720, 540), true);
+        }
+        if(!pic.empty() && idx <= 100) recorder->write(pic);
+#endif
         chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
         // pthread_mutex_lock(&Mutex);
         MManager.read(buffers[current_buffer].translator, *serialPort);
@@ -162,29 +179,15 @@ void *ReadFunction(void *arg) // 读线程
 #else
         MManager.getFrame(buffers[current_buffer].pic, buffers[current_buffer].translator);
 #endif
-        cv::Mat pic = buffers[current_buffer].pic;
+        
         // pthread_mutex_unlock(&Mutex);
         // 切换缓冲区
         current_buffer = (current_buffer + 1) % 2;
         
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-#ifdef RECORDVIDEO
-        cnt ++;
-        if (cnt > RECORD_FRAME_COUNT && idx <= 100)
-        {
-            cnt = 0;
-            if(source_recorder != NULL){
-                source_recorder->release();
-                delete source_recorder;
-            }
-            int coder = cv::VideoWriter::fourcc('H', '2', '6', '4');
-            idx ++;
-            source_recorder = new cv::VideoWriter(path + std::to_string(idx) + ".mp4", coder, 60.0, cv::Size(pic.size[1], pic.size[0]), true);
-        }
-        if(idx <= 100) source_recorder->write(pic);
-#endif
-        pthread_barrier_wait(&Barrier);
+
+        pthread_barrier_wait(&Barrier);     // 线程同步
         printf("read   duration: %ld ms\n", duration);
     }
     return NULL;
@@ -192,12 +195,6 @@ void *ReadFunction(void *arg) // 读线程
 
 void *OperationFunction(void *arg)
 {
-#ifdef RECORDVIDEO
-    cv::VideoWriter *result_recorder = NULL;
-    std::string path = "../video/result/";
-    path = path + GetTime() + "/";
-    std::filesystem::create_directories(path);
-#endif
     SerialPort *serialPort = (SerialPort *)arg;
     // 实例化自瞄类
     AimAuto aim(&gp);
@@ -227,8 +224,6 @@ void *OperationFunction(void *arg)
     //========================//
     uint8_t error_times{0};
     int processing_buffer = 1; // 当前处理的缓冲区
-    int cnt = RECORD_FRAME_COUNT;
-    int idx = 0;
     int empty_frame_count = 0;
     // cv::waitKey(200);
     while (1)
@@ -236,12 +231,10 @@ void *OperationFunction(void *arg)
         chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
 #ifndef NOPORT
         translator = buffers[processing_buffer].translator;
-        // translator.message.pitch = 0;
-        // translator.message.yaw = 0;
 #else
         MManager.FakeMessage(translator);
 #endif // NOPORT
-        pic = buffers[processing_buffer].pic.clone();
+        pic = buffers[processing_buffer].pic;
 
         buffers[processing_buffer].data_ready = false;
 
@@ -269,6 +262,9 @@ void *OperationFunction(void *arg)
         // 自瞄模式
         if (translator.message.status % 5 == 0)
         {
+            // dt = 0.01;
+            // translator.message.pitch = 0;
+            // translator.message.yaw = 0.6;
             aim.auto_aim(pic, translator, dt);
             double time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
             translator.message.latency = (time_stamp - last_time_stamp) * 1000;
@@ -332,24 +328,7 @@ void *OperationFunction(void *arg)
 #endif
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-#ifdef RECORDVIDEO
-        cv::resize(pic, pic, cv::Size(1080, 720), cv::INTER_LINEAR);
-        cnt ++;
-        if (cnt > RECORD_FRAME_COUNT && idx <= 100)
-        {
-            cnt = 0;
-            if(result_recorder != NULL){
-                result_recorder->release();
-                delete result_recorder;
-            }
-            int coder = cv::VideoWriter::fourcc('H', '2', '6', '4');
-            idx ++;
-            result_recorder = new cv::VideoWriter(path + std::to_string(idx) + ".mp4", coder, 60.0, cv::Size(pic.size[1], pic.size[0]), true);
-        }
-        if(idx <= 100) result_recorder->write(pic);
-
-#endif
-        pthread_barrier_wait(&Barrier);
+        pthread_barrier_wait(&Barrier);     // 线程同步
         printf("option duration: %ld ms\n", duration);
     }
     return NULL;
