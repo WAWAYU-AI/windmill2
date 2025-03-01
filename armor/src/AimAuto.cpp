@@ -93,6 +93,10 @@ void AimAuto::draw_armor_back(cv::Mat &pic, Armor &armor, int number, cv::Scalar
     cv::line(pic, imgPoints[2], imgPoints[3], color, 2);
     cv::line(pic, imgPoints[3], imgPoints[0], color, 2);
     cv::Point2f center = (imgPoints[0] + imgPoints[1] + imgPoints[2] + imgPoints[3]) / 4;  
+    armor.apex[0] = imgPoints[0];
+    armor.apex[1] = imgPoints[1];
+    armor.apex[2] = imgPoints[2];
+    armor.apex[3] = imgPoints[3];
     cv::circle(pic, center, 8, color, 2);
 }
 
@@ -194,35 +198,30 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
         cv::Mat b = (cv::Mat_<double>(3, 3) << 0, 0, 1, -1, 0, 0, 0, -1, 0);
     }
 #endif
-    // if (armors.size() == 1){
-    //     if (last_armor.center != cv::Point3f(0, 0 ,0)){ 
-    //        last_armor.position(0) = tar_list[0].position(0);
-    //        double dis = (last_armor.position - tar_list[0].position).norm();
-    //        double dyaw = last_armor.yaw - tar_list[0].yaw;
-    //        dyaw = abs(atan2(sin(dyaw), cos(dyaw)));
-    //        gp -> r_yaw_corrected = gp -> r_yaw / (dis / dyaw / 2000);
-    //        cv::putText(src, "r_yaw_corrected: " + std::to_string(gp -> r_yaw_corrected), cv::Point(15 , 650), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 255), 1);
-    //     } 
-    //     last_armor = tar_list[0];
-    // }else{
-    //     last_armor.center = cv::Point3f(0, 0, 0);
-        gp -> r_yaw_corrected = gp -> r_yaw;
-    // }
     tracker->track(tar_list, ts, dt);
-    // tracker->track(detector->tag_list, ts, dt);
 
-#ifdef DEBUGMODE
-#ifdef APRILTAG
-    tracker -> draw(detector->tag_list);
-#else
-    tracker -> draw(tar_list);
-#endif
-    std::vector<Armor> target_armors;
-    tracker -> calc_armor_back(target_armors, ts);
-    for (auto &armor : target_armors){
-        draw_armor_back(src, armor, 2, cv::Scalar(0, 255, 0));
-    }
-    if (ts.message.crc){
+    #ifdef DEBUGMODE
+    #ifdef APRILTAG
+        tracker -> draw(detector->tag_list);
+    #else
+        tracker -> draw(tar_list);
+    #endif
+    #endif // DEBUGMODE
+        ts.message.crc = 0;
+        std::vector<Armor> target_armors;
+        tracker -> calc_armor_back(target_armors, ts);
+        for (auto &armor : target_armors){
+            draw_armor_back(src, armor, 2, cv::Scalar(0, 255, 0));
+            for (auto &tar : tar_list){
+                cv::Point2f c1 = (tar.apex[0] + tar.apex[1] + tar.apex[2] + tar.apex[3]) / 4;
+                cv::Point2f c2 = (armor.apex[0] + armor.apex[1] + armor.apex[2] + armor.apex[3]) / 4;
+                float dis = cv::norm(c1 - c2);
+                float a = (cv::norm(tar.apex[1] - tar.apex[2]) + cv::norm(tar.apex[3] - tar.apex[0])) / 2;
+                if (dis < a) ts.message.crc = 1;
+            }
+        }
+    #ifdef DEBUGMODE
+        if (ts.message.crc){
         cv::putText(src, "latency: " + std::to_string(ts.message.latency), cv::Point(1050, 150), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
         cv::putText(src, "xc: " + std::to_string(ts.message.x_c), cv::Point(1130, 200), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
         cv::putText(src, "vx: " + std::to_string(ts.message.v_x), cv::Point(1130, 250), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);

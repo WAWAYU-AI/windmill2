@@ -438,11 +438,10 @@ Tracker::Tracker(GlobalParam &gp){
     {
         Eigen::DiagonalMatrix<double, 16> r;
         double xy = gp.r_xy_factor;
-        xy *= xy;
-        r.diagonal() << abs(xy * z[0]*z[0]),  abs(xy * z[1]*z[1]),  gp.r_z, r_yaw_corrected,
-                        abs(xy * z[4]*z[4]),  abs(xy * z[5]*z[5]),  gp.r_z, r_yaw_corrected,
-                        abs(xy * z[8]*z[8]),  abs(xy * z[9]*z[9]),  gp.r_z, r_yaw_corrected,
-                        abs(xy * z[12]*z[12]), abs(xy * z[13]*z[13]), gp.r_z, r_yaw_corrected; // 定义观测噪声
+        r.diagonal() << abs(xy * z[0]) * r_xy_correction[0],  abs(xy * z[1]) * r_xy_correction[0],  gp.r_z, r_yaw_corrected,
+                        abs(xy * z[4]) * r_xy_correction[1],  abs(xy * z[5]) * r_xy_correction[1],  gp.r_z, r_yaw_corrected,
+                        abs(xy * z[8]) * r_xy_correction[2],  abs(xy * z[9]) * r_xy_correction[2],  gp.r_z, r_yaw_corrected,
+                        abs(xy * z[12]) * r_xy_correction[3], abs(xy * z[13]) * r_xy_correction[3], gp.r_z, r_yaw_corrected; // 定义观测噪声
         return r;
     };
 

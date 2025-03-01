@@ -3,7 +3,7 @@
 cam_index: 0
 enable_auto_exp: 0
 energy_exp_time: 2000.
-armor_exp_time: 2100.
+armor_exp_time: 2400.
 r_balance: 3600
 g_balance: 1024
 b_balance: 1957
@@ -23,6 +23,6 @@ k2: -0.73340558
 k3: 4.50457792
 p1: -0.01111818
 p2: -0.00803139
-vector_x: 67.88
-vector_y: 45
-vector_z: 50
+vector_x: 105.3
+vector_y: 0
+vector_z: 46.5
