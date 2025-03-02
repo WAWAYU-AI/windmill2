@@ -1,12 +1,12 @@
 %YAML:1.0
 ---
 cost_threshold: 1600.
-max_lost_frame: 10.
+max_lost_frame: 15.
 s2qxyz: 30.
-s2qyaw: 0.0002
+s2qyaw: 0.00025
 s2qr: 150.
 r_xy_factor: 5.0000000000000000e-05
-r_z: 0.001  
+r_z: 0.0001  
 r_yaw: 5.
 s2p0xyr: 1000.
 s2p0yaw: 50
