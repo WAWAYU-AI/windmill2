@@ -214,7 +214,7 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
         for (auto &armor : target_armors){
             draw_armor_back(src, armor, 2, cv::Scalar(0, 255, 0));
             for (auto &tar : tar_list){
-                float dyaw = tar.yaw - ts.message.yaw - armor.yaw;
+                float dyaw = tar.yaw - armor.yaw;
                 if (abs(atan2(sin(dyaw), cos(dyaw))) > 1) continue;
                 cv::Point2f c1 = (tar.apex[0] + tar.apex[1] + tar.apex[2] + tar.apex[3]) / 4;
                 cv::Point2f c2 = (armor.apex[0] + armor.apex[1] + armor.apex[2] + armor.apex[3]) / 4;

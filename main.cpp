@@ -123,9 +123,9 @@ void *ReadFunction(void *arg) // 读线程
     {
 #ifdef RECORDVIDEO
         cv::Mat pic = buffers[current_buffer].pic;
-        if(!pic.empty()) cv::resize(pic, pic, cv::Size(720, 540));
+        if(!pic.empty()) cv::resize(pic, pic, cv::Size(600, 450));
         cnt ++;
-        if (cnt > RECORD_FRAME_COUNT && idx <= 100)
+        if (cnt > RECORD_FRAME_COUNT && idx <= 50)
         {
             cnt = 0;
             if(recorder != NULL){
@@ -133,9 +133,9 @@ void *ReadFunction(void *arg) // 读线程
                 delete recorder;
             }
             idx ++;
-            recorder = new cv::VideoWriter(path + std::to_string(idx) + ".mp4", coder, 60.0, cv::Size(720, 540), true);
+            recorder = new cv::VideoWriter(path + std::to_string(idx) + ".mp4", coder, 60.0, cv::Size(600, 450), true);
         }
-        if(!pic.empty() && idx <= 100) recorder->write(pic);
+        if(!pic.empty() && idx <= 50) recorder->write(pic);
 #endif
         chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
         // pthread_mutex_lock(&Mutex);
@@ -263,8 +263,8 @@ void *OperationFunction(void *arg)
         if (translator.message.status % 5 == 0)
         {
             // dt = 0.01;
-            // translator.message.pitch = 0;
-            // translator.message.yaw = 0.6;
+            // translator.message.pitch = 0.3;
+            // translator.message.yaw = 0.1;
             aim.auto_aim(pic, translator, dt);
             double time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
             translator.message.latency = (time_stamp - last_time_stamp) * 1000;
