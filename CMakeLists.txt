@@ -32,7 +32,7 @@
     # 使用神经网络识别
     # add_definitions(-DUSEWMNET)
     # 记录视频
-    add_definitions(-DRECORDVIDEO)
+    # add_definitions(-DRECORDVIDEO)
     include_directories(
         /opt/MVS/include
         armor/include
