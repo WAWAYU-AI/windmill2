@@ -43,13 +43,13 @@ void convertNumber(const std::string &number_s, int &number_i)
 {
     if (number_s == "outpost")
     {
-        number_i = 0;
+        number_i = 5;
     }
-    else if (number_s == "guard")
+    else if (number_s == "base")
     {
         number_i = 6;
     }
-    else if (number_s == "base")
+    else if (number_s == "guard")
     {
         number_i = 7;
     }
@@ -60,7 +60,7 @@ void convertNumber(const std::string &number_s, int &number_i)
     else
     {
         // continue;
-        number_i = 3;
+        number_i = 0;
     }
 }
 
@@ -132,11 +132,12 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
     auto armors = detector->detect(src, gp->color);
     std::sort(armors.begin(), armors.end(), [&](const UnsolvedArmor &la, const UnsolvedArmor &lb)
               { return abs((double)src.cols / 2 - ((la.left_light.top + la.right_light.top + la.left_light.bottom + la.right_light.bottom) / 4).x) < abs((double)src.cols / 2 - ((lb.left_light.top + lb.right_light.top + lb.left_light.bottom + lb.right_light.bottom) / 4).x); });
+    int number;
     for (auto armor : armors)
     {
-        int number = 0;
+        number = 0;
         convertNumber(armor.number, number);
-        if (number == 7){ // base
+        if (number == 6){ // base
             continue;
         }
         Armor tar;
@@ -220,7 +221,11 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
                 cv::Point2f c2 = (armor.apex[0] + armor.apex[1] + armor.apex[2] + armor.apex[3]) / 4;
                 float dis = cv::norm(c1 - c2);
                 float a = (cv::norm(tar.apex[1] - tar.apex[2]) + cv::norm(tar.apex[3] - tar.apex[0])) / 2;
-                if (dis < a * 0.5) ts.message.crc = 1;
+                if (dis < a * 0.5) 
+                {
+                    ts.message.crc = 1;
+                    ts.message.v_z = number;
+                }
             }
         }
         if (ts.message.crc) cnt ++;

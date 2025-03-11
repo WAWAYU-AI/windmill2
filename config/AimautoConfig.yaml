@@ -2,15 +2,15 @@
 ---
 cost_threshold: 1600.
 max_lost_frame: 10.
-s2qxyz: 30.
+s2qxyz: 960.
 s2qyaw: 0.0002
-s2qr: 150.
-r_xy_factor: 5.0000000000000000e-05
+s2qr: 450.
+r_xy_factor: 4.0000000000000000e-05
 r_z: 0.001  
 r_yaw: 5.
 s2p0xyr: 1000.
 s2p0yaw: 50
-r_initial: 300.
+r_initial: 250.
 small_armor_a: 6.7500000000000000e+01
 small_armor_b: 28.5
 big_armor_a: 1.1250000000000000e+02
