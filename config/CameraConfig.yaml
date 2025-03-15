@@ -3,7 +3,7 @@
 cam_index: 0
 enable_auto_exp: 0
 energy_exp_time: 2000.
-armor_exp_time: 2600.
+armor_exp_time: 600.
 r_balance: 3600
 g_balance: 1024
 b_balance: 1957

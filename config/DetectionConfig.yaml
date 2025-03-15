@@ -10,7 +10,7 @@ min_large_center_distance: 3.2000000000000002e+00
 max_large_center_distance: 6.
 max_angle_a: 60.
 num_threshold: 8.0000000000000004e-01
-blue_threshold: 45
+blue_threshold: 40
 red_threshold: 70
 grad_max: 500
 grad_min: 300

@@ -43,7 +43,7 @@ NumberClassifier::NumberClassifier(
 void NumberClassifier::extractNumbers(const cv::Mat &src, std::vector<UnsolvedArmor> &armors, int detect_color)
 {
     // Light length in image
-    const int light_length = 12;
+    const int light_length = 15;
     // Image size after warp
     const int warp_height = 28;
     const int small_armor_width = 32;

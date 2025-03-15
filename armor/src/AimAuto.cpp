@@ -202,13 +202,14 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
 #endif
     tracker->track(tar_list, ts, dt);
 
-    #ifdef DEBUGMODE
-    #ifdef APRILTAG
-        tracker -> draw(detector->tag_list);
-    #else
-        tracker -> draw(tar_list);
-    #endif
-    #endif // DEBUGMODE
+#ifdef DEBUGMODE
+#ifdef APRILTAG
+    tracker -> draw(detector->tag_list);
+#else
+    tracker -> draw(tar_list);
+#endif
+#endif // DEBUGMODE
+    if(ts.message.crc != 0){
         if(tar_list.size() > 0) ts.message.crc = 0;
         std::vector<Armor> target_armors;
         tracker -> calc_armor_back(target_armors, ts);
@@ -216,7 +217,7 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
             draw_armor_back(src, armor, 2, cv::Scalar(0, 255, 0));
             for (auto &tar : tar_list){
                 float dyaw = tar.yaw - ts.message.yaw - armor.yaw;
-                if (abs(atan2(sin(dyaw), cos(dyaw))) > 1) continue;
+                if (abs(atan2(sin(dyaw), cos(dyaw))) > 0.75) continue;
                 cv::Point2f c1 = (tar.apex[0] + tar.apex[1] + tar.apex[2] + tar.apex[3]) / 4;
                 cv::Point2f c2 = (armor.apex[0] + armor.apex[1] + armor.apex[2] + armor.apex[3]) / 4;
                 float dis = cv::norm(c1 - c2);
@@ -230,9 +231,10 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
         }
         if (ts.message.crc) cnt ++;
         else cnt = 0;
-        if (cnt < 10) ts.message.crc = 0;
-    #ifdef DEBUGMODE
-        if (ts.message.crc){
+        if (cnt < 10) ts.message.crc = 2;
+    }
+#ifdef DEBUGMODE
+    if (ts.message.crc == 1){
         cv::putText(src, "latency: " + std::to_string(ts.message.latency), cv::Point(1050, 150), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
         cv::putText(src, "xc: " + std::to_string(ts.message.x_c), cv::Point(1130, 200), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
         cv::putText(src, "vx: " + std::to_string(ts.message.v_x), cv::Point(1130, 250), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);

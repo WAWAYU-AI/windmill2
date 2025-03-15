@@ -134,7 +134,7 @@ void *ReadFunction(void *arg) // 读线程
                 delete recorder;
             }
             idx ++;
-            recorder = new cv::VideoWriter(path + std::to_string(idx) + ".mp4", coder, 60.0, cv::Size(720, 540), true);
+            recorder = new cv::VideoWriter(path + std::to_string(idx) + ".mp4", coder, 30.0, cv::Size(720, 540), true);
         }
         if(!pic.empty() && idx <= 100) recorder->write(pic);
 #endif

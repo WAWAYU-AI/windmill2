@@ -147,10 +147,10 @@ std::vector<UnsolvedArmor> Detector::detect(cv::Mat &input, const int color)
 #endif
     lights_ = findLights(input, binary_img);
 #ifdef DEBUGMODE
-    // for (auto light : lights_)
-    // {
-    //     cv::rectangle(input, light.boundingRect2f(), cv::Scalar(255, 255, 255), 1);
-    // }
+    for (auto light : lights_)
+    {
+        cv::rectangle(input, light.boundingRect2f(), cv::Scalar(255, 255, 255), 1);
+    }
 #endif
     armors_ = matchLights(lights_);
     if (!armors_.empty())
@@ -236,7 +236,7 @@ bool Detector::isLight(const Light &light)
     bool ratio_ok = l.min_ratio < ratio && ratio < l.max_ratio;
 
     bool angle_ok = light.tilt_angle < l.max_angle;
-    bool size_ok = light.length * light.width < 6400 and light.length > 10;
+    bool size_ok = light.length * light.width < 12800 and light.length > 10;
     bool is_light = ratio_ok && angle_ok && size_ok;
 
     return is_light;
