@@ -158,6 +158,7 @@ void *ReadFunction(void *arg) // 读线程
 #ifndef NOPORT
         MManager.LogMessage(buffers[current_buffer].translator, gp);
         // translator.message.status =3;
+        gp.armor_exp_time = buffers[current_buffer].translator.message.status / 5 ? gp.red_exp_time : gp.blue_exp_time;
         if (buffers[current_buffer].translator.message.status / 5 != gp.color)
         {
             gp.initGlobalParam(buffers[current_buffer].translator.message.status / 5);

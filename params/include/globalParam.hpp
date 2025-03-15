@@ -205,6 +205,8 @@ struct GlobalParam
     MV_CAM_EXPOSURE_AUTO_MODE enable_auto_exp = MV_EXPOSURE_AUTO_MODE_OFF;
     float energy_exp_time = 200.0F;         // 能量机关曝光时间
     float armor_exp_time = 290.0F;          // 装甲板曝光时间
+    float blue_exp_time = 1000;
+    float red_exp_time = 1000;
     float height = 1080;
     float width = 1440;
     //===白平衡===/

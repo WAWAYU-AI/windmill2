@@ -16,6 +16,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/eigen.hpp>
 #include <string>
+#include <vector>
 
 enum class ArmorsNum { NORMAL_4 = 4, BALANCE_2 = 2, OUTPOST_3 = 3 };
 
@@ -34,7 +35,9 @@ private:
     std::vector<ExtendedKalmanFilter> ekf_list;
     std::vector<Eigen::VectorXd> z_vector_list;
     std::vector<int> lost_frame_count;
+    std::vector<int> number_list;
     std::vector<Armor> armors_pred;
+    bool have_number[8];
 
     void refine_zVector(int ekf_id);
     void create_new_ekf(Armor &armor);

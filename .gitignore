@@ -14,4 +14,4 @@ video/source/*
 video/record/*
 
 # yaml
-config/*.yaml
+# config/*.yaml

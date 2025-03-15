@@ -15,7 +15,9 @@ void GlobalParam::initGlobalParam(const int color)
     fs["cam_index"] >> cam_index;
     fs["enable_auto_exp"] >> enable_auto_exp;
     fs["energy_exp_time"] >> energy_exp_time;
-    fs["armor_exp_time"] >> armor_exp_time;
+    // fs["armor_exp_time"] >> armor_exp_time;
+    fs["blue_exp_time"] >> blue_exp_time;
+    fs["red_exp_time"] >> red_exp_time;
     fs["r_balance"] >> r_balance;
     fs["g_balance"] >> g_balance;
     fs["b_balance"] >> b_balance;
@@ -103,7 +105,9 @@ void GlobalParam::saveGlobalParam()
     fs << "cam_index" << cam_index;
     fs << "enable_auto_exp" << enable_auto_exp;
     fs << "energy_exp_time" << energy_exp_time;
-    fs << "armor_exp_time" << armor_exp_time;
+    // fs << "armor_exp_time" << armor_exp_time;
+    fs << "blue_exp_time" << blue_exp_time;
+    fs << "red_exp_time" << red_exp_time;
     fs << "r_balance" << r_balance;
     fs << "g_balance" << g_balance;
     fs << "b_balance" << b_balance;

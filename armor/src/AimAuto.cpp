@@ -223,10 +223,7 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
                 float dis = cv::norm(c1 - c2);
                 float a = (cv::norm(tar.apex[1] - tar.apex[2]) + cv::norm(tar.apex[3] - tar.apex[0])) / 2;
                 if (dis < a * 0.5) 
-                {
                     ts.message.crc = 1;
-                    ts.message.v_z = number;
-                }
             }
         }
         if (ts.message.crc) cnt ++;
@@ -234,7 +231,7 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
         if (cnt < gp->max_lost_frame) ts.message.crc = 2;
     }
     #ifdef DEBUGMODE
-        if (ts.message.crc == 1){
+        if (ts.message.crc){
         cv::putText(src, "latency: " + std::to_string(ts.message.latency), cv::Point(1050, 150), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
         cv::putText(src, "xc: " + std::to_string(ts.message.x_c), cv::Point(1130, 200), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
         cv::putText(src, "vx: " + std::to_string(ts.message.v_x), cv::Point(1130, 250), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
@@ -317,9 +314,9 @@ void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armo
     cv::Rodrigues(rotation_matrix, rVec);
     tar.rVec = rVec;    // 世界系到车体系旋转向量
 
-    // std::cout << "yaw before: " << tar.yaw << std::endl;
-    // optimizeYawZ(objPoints, imagePoints, tar.center.x, tar.center.y, tar.center.z, ts.message.yaw, ts.message.pitch, tar.yaw, _K, _dist);
-    // std::cout << "yaw after : " << tar.yaw << std::endl;
+    std::cout << "yaw before: " << tar.yaw << std::endl;
+    optimizeYawZ(objPoints, imagePoints, tar.center.x, tar.center.y, tar.center.z, ts.message.yaw, ts.message.pitch, tar.yaw, _K, _dist);
+    std::cout << "yaw after : " << tar.yaw << std::endl;
     //=========================================//
 }
 

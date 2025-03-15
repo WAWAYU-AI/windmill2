@@ -53,34 +53,25 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
     };
     std::vector<int> matchX, matchY;
     int n, m;
-    while(true){
-        bool all_matched = true;
-        n = armors_curr.size();
-        m = armors_pred.size();
-        KuhnMunkres km;
-        std::vector<std::vector<double>> w(n, std::vector<double>(m, -INF));
-        for(int i = 0; i < n; i++){
-            for(int j = 0; j < m; j++){
-                auto &u = armors_curr[i];
-                auto &v = armors_pred[j];
-                w[i][j] = cost(u, v);
-            }       
-        }
-        km.solve(w, matchX, matchY, gp->cost_threshold);
-        // std::cout << "matchX: ";
-        for (auto &x : matchX){
-            // std::cout << x << " ";
-        }
-        std::cout << std::endl;
-        for(int i = 0; i < n; i++)
-            if(matchX[i] == -1){
-                all_matched = false;
-                create_new_ekf(armors_curr[i]);
-                break;
-            }
-        if(all_matched) break;
-    }
+    n = armors_curr.size();
+    m = armors_pred.size();
+    KuhnMunkres km;
+    std::vector<std::vector<double>> w(n, std::vector<double>(m, -INF));
     for(int i = 0; i < n; i++){
+        for(int j = 0; j < m; j++){
+            auto &u = armors_curr[i];
+            auto &v = armors_pred[j];
+            w[i][j] = cost(u, v);
+            if (u.type != number_list[j/4]) w[i][j] = -INF;
+        }       
+    }
+    km.solve(w, matchX, matchY, gp->cost_threshold);
+    std::cout << std::endl;
+    for(int i = 0; i < n; i++)
+        if(matchX[i] == -1)
+            create_new_ekf(armors_curr[i]);
+    for(int i = 0; i < n; i++){
+        if(matchX[i] == -1) continue;
         int ekf_id  = matchX[i]/4;
         int armor_id= matchX[i]%4;
         auto &armor = armors_curr[i];
@@ -93,6 +84,8 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
                 ekf_list.erase(ekf_list.begin() + i);
                 z_vector_list.erase(z_vector_list.begin() + i);
                 lost_frame_count.erase(lost_frame_count.begin() + i);
+                have_number[number_list[i]] = false;
+                number_list.erase(number_list.begin() + i);
                 i--;
                 continue;
             }
@@ -105,6 +98,8 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
             ekf_list.erase(ekf_list.begin() + i);
             z_vector_list.erase(z_vector_list.begin() + i);
             lost_frame_count.erase(lost_frame_count.begin() + i);
+            have_number[number_list[i]] = false;
+            number_list.erase(number_list.begin() + i);
             i--;
         }
     }
@@ -121,7 +116,7 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
         ts.message.v_y = x(3);
         ts.message.z1 = x(4);
         ts.message.z2 = x(5);
-        ts.message.v_z = x(6);
+        ts.message.v_z = number_list[0];
         ts.message.r1 = x(7);
         ts.message.r2 = x(8);
         ts.message.yaw_a = x(9);
@@ -241,15 +236,17 @@ void Tracker::refine_zVector(int ekf_id){
 }
 
 void Tracker::create_new_ekf(Armor &armor){
+    if(have_number[armor.type]) return;
     Eigen::MatrixXd P0 = Eigen::MatrixXd::Identity(11, 11) * gp->s2p0xyr;
     P0(9, 9) = gp->s2p0yaw;
     Eigen::Vector3d c = calcArmor(armor.position(0), armor.position(1), armor.position(2), gp->r_initial, armor.yaw + M_PI).position; 
     Eigen::VectorXd x0(11);
     x0 << c(0), 0, c(1), 0, c(2), c(2), 0, gp->r_initial, gp->r_initial, armor.yaw, 0;
     ekf_list.push_back(ExtendedKalmanFilter(f, h, j_f, j_h, u_q, u_r, nomolize_residual, P0, x0));
-    std::cout<< "create new ekf: " << cost(armor, calcArmor(x0(0), x0(2), x0(4), x0(7), x0(9))) << std::endl;
     z_vector_list.push_back(Eigen::VectorXd::Zero(16));
     lost_frame_count.push_back(0);
+    number_list.push_back(armor.type);
+    have_number[armor.type] = true;
     armors_pred.push_back(calcArmor(x0(0), x0(2), x0(4), x0(7), x0(9)));
     armors_pred.push_back(calcArmor(x0(0), x0(2), x0(5), x0(8), x0(9) + M_PI/2));
     armors_pred.push_back(calcArmor(x0(0), x0(2), x0(4), x0(7), x0(9) + M_PI));
@@ -278,6 +275,7 @@ void Tracker::calc_armor_back(std::vector<Armor> &armors, Translator &ts){
     Eigen::Matrix3d rMat = r_mat * rotation;
     Eigen::Vector3d tVec = r_mat * Eigen::Vector3d(gp->vector_x, gp->vector_y, gp->vector_z);
     for (auto &armor : armors){
+        armor.type = number_list[0];
         armor.position = rMat.inverse() * (armor.position - tVec);
         armor.center = cv::Point3f(armor.position(0), armor.position(1), armor.position(2));
         double yaw = - armor.yaw;
@@ -296,15 +294,6 @@ void Tracker::calc_armor_back(std::vector<Armor> &armors, Translator &ts){
         cv::Rodrigues(rVec, rVec);
         armor.angle = cv::Point3f(rVec.at<double>(0), rVec.at<double>(1), rVec.at<double>(2));
     }
-
-        // cv::Mat mat_x = (cv::Mat_<double>(3, 3) << 1, 0, 0, 0, cos(pitch), -sin(pitch), 0, sin(pitch), cos(pitch));
-        // cv::Mat mat_y = (cv::Mat_<double>(3, 3) << cos(yaw), 0, sin(yaw), 0, 1, 0, -sin(yaw), 0, cos(yaw));
-        // cv::Mat rotation_matrix = mat_y * mat_x;
-        // cv::Mat rVec;
-        // cv::eigen2cv(rotation_matrix, rVec);
-        // cv::Rodrigues(rotation_matrix, rVec);
-        // armor.angle = cv::Point3f(rVec.at<float>(0), rVec.at<float>(1), rVec.at<float>(2));
-    // }
 }
 
 Tracker::Tracker(GlobalParam &gp){

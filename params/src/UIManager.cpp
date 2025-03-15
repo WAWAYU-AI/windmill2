@@ -16,12 +16,12 @@ UIManager::UIManager(GlobalParam &gp, int max_row)
     this->page = 1;
     this->row = 1;
     param_list = {
-      {&gp.armor_exp_time, "armor_exp_time", '+', 10, 100},
-      {&gp.red_threshold, "red_threshold", '+', 1, 10},
+      {&gp.blue_exp_time, "blue_exp_time", '+', 10, 100},
+      {&gp.red_exp_time, "red_exp_time", '+', 10, 100},
       {&gp.blue_threshold, "blue_threshold", '+', 1, 10},
-      {&gp.grad_max, "grad_max", '+', 5, 50},
-      {&gp.grad_min, "grad_min", '+', 5, 50},
+      {&gp.red_threshold, "red_threshold", '+', 1, 10},
       {&gp.cost_threshold, "cost_threshold", '+', 10, 100},
+      {&gp.max_lost_frame, "max_lost_frame", '+', 1, 5},
       {&gp.s2qxyz, "s2qxyz", '*', 1.1, 2},
       {&gp.s2qr, "s2qr", '*', 1.1, 2},
       {&gp.s2qyaw, "s2qyaw", '*', 1.1, 2},
