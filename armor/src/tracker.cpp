@@ -280,10 +280,8 @@ void Tracker::calc_armor_back(std::vector<Armor> &armors, Translator &ts){
     for (auto &armor : armors){
         armor.position = rMat.inverse() * (armor.position - tVec);
         armor.center = cv::Point3f(armor.position(0), armor.position(1), armor.position(2));
-        armor.yaw -= ts.message.yaw;
         double yaw = - armor.yaw;
-        double pitch = M_PI - (15 * M_PI / 180 + ts.message.pitch);
-        // printf("pitch: %f, yaw: %f\n", pitch, yaw);
+        double pitch = M_PI - (15 * M_PI / 180);
         Eigen::Matrix<double, 3, 3> mat_x;
         mat_x << double(1), double(0), double(0),
                  double(0), cos(pitch), -sin(pitch),
@@ -292,8 +290,7 @@ void Tracker::calc_armor_back(std::vector<Armor> &armors, Translator &ts){
         mat_y << cos(yaw), double(0), sin(yaw),
                 double(0), double(1), double(0),
                 -sin(yaw), double(0), cos(yaw);
-        Eigen::Matrix<double, 3, 3> rotation_matrix = mat_y * mat_x;
-        // std::cout << "rotation_matrix:\n" << rotation_matrix << std::endl;
+        Eigen::Matrix<double, 3, 3> rotation_matrix = rMat.inverse() * rotation * mat_y * mat_x;
         cv::Mat rVec;
         cv::eigen2cv(rotation_matrix, rVec);
         cv::Rodrigues(rVec, rVec);

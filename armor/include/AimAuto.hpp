@@ -37,6 +37,7 @@ private:
         double known_x,
         double known_y,
         double known_z,
+        double camera_yaw,
         double camera_pitch,
         double &yaw,
         const cv::Mat& K,

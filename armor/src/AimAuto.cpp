@@ -216,7 +216,7 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
         for (auto &armor : target_armors){
             draw_armor_back(src, armor, 2, cv::Scalar(0, 255, 0));
             for (auto &tar : tar_list){
-                float dyaw = tar.yaw - ts.message.yaw - armor.yaw;
+                float dyaw = tar.yaw - armor.yaw;
                 if (abs(atan2(sin(dyaw), cos(dyaw))) > 0.75) continue;
                 cv::Point2f c1 = (tar.apex[0] + tar.apex[1] + tar.apex[2] + tar.apex[3]) / 4;
                 cv::Point2f c2 = (armor.apex[0] + armor.apex[1] + armor.apex[2] + armor.apex[3]) / 4;
@@ -231,10 +231,10 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
         }
         if (ts.message.crc) cnt ++;
         else cnt = 0;
-        if (cnt < 10) ts.message.crc = 2;
+        if (cnt < gp->max_lost_frame) ts.message.crc = 2;
     }
-#ifdef DEBUGMODE
-    if (ts.message.crc == 1){
+    #ifdef DEBUGMODE
+        if (ts.message.crc == 1){
         cv::putText(src, "latency: " + std::to_string(ts.message.latency), cv::Point(1050, 150), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
         cv::putText(src, "xc: " + std::to_string(ts.message.x_c), cv::Point(1130, 200), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
         cv::putText(src, "vx: " + std::to_string(ts.message.v_x), cv::Point(1130, 250), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
@@ -287,9 +287,6 @@ void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armo
     }else{
         yaw = M_PI - yaw;
     }
-    // std::cout << "yaw before: " << yaw << std::endl;
-    // optimizeYawZ(objPoints, imagePoints, tar.center.x, tar.center.y, tar.center.z, ts.message.pitch, yaw, _K, _dist);
-    // std::cout << "yaw after : " << yaw << std::endl;
 
     tar.angle = cv::Point3f(rVec.at<double>(0), rVec.at<double>(1), rVec.at<double>(2));
     tar.color = gp->color;
@@ -319,42 +316,58 @@ void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armo
     rotation_matrix = a * b * rotation_matrix;
     cv::Rodrigues(rotation_matrix, rVec);
     tar.rVec = rVec;    // 世界系到车体系旋转向量
+
+    // std::cout << "yaw before: " << tar.yaw << std::endl;
+    // optimizeYawZ(objPoints, imagePoints, tar.center.x, tar.center.y, tar.center.z, ts.message.yaw, ts.message.pitch, tar.yaw, _K, _dist);
+    // std::cout << "yaw after : " << tar.yaw << std::endl;
     //=========================================//
 }
 
 struct ReprojectionError {
     ReprojectionError(const std::vector<cv::Point3f>& objPoints,
                       const std::vector<cv::Point2f>& imgPoints,
+                      double camera_yaw,
                       double camera_pitch,
                       double known_x,
                       double known_y,
                       double known_z,
                       const cv::Mat& K,
-                      const cv::Mat& dist)
-    : objPoints_(objPoints), imgPoints_(imgPoints), camera_pitch_(camera_pitch),
-      known_x_(known_x), known_y_(known_y), known_z_(known_z) {
+                      const cv::Mat& dist,
+                      GlobalParam* gp_)
+    : objPoints_(objPoints), imgPoints_(imgPoints), camera_yaw_(camera_yaw), camera_pitch_(camera_pitch),
+      known_x_(known_x), known_y_(known_y), known_z_(known_z), gp(gp_) {
         K_ = K.clone();
         dist_ = dist.clone();
     }
 
     template <typename T>
     bool operator()(const T* const params, T* residuals) const {
-        T yaw = - params[0];
-        T pitch = T(M_PI - camera_pitch_);
-
-        cv::Mat mat_x = (cv::Mat_<T>(3, 3) << T(1), T(0), T(0),
-                                               T(0), cos(pitch), -sin(pitch),
-                                               T(0), sin(pitch), cos(pitch));
-                                                
-        cv::Mat mat_y = (cv::Mat_<T>(3, 3) << cos(yaw), T(0), sin(yaw),
-                                               T(0), T(1), T(0),
-                                               -sin(yaw), T(0), cos(yaw));
-
-        cv::Mat rotation_matrix = mat_y * mat_x;
-
-        cv::Mat rvec, tvec;
-        cv::Rodrigues(rotation_matrix, rvec);
-        tvec = (cv::Mat_<T>(3, 1) << T(known_x_), T(known_y_), T(known_z_));
+        Eigen::Matrix3d m_pitch(3, 3);//pitch旋转矩阵
+        Eigen::Matrix3d m_yaw(3, 3);//yaw旋转矩阵
+        m_yaw << cos(camera_yaw_), -sin(camera_yaw_), 0, sin(camera_yaw_), cos(camera_yaw_), 0, 0, 0, 1;
+        m_pitch << cos(camera_pitch_), 0, -sin(camera_pitch_), 0, 1, 0, sin(camera_pitch_), 0, cos(camera_pitch_);
+        Eigen::MatrixXd r_mat = m_yaw * m_pitch;//旋转矩阵
+        Eigen::Matrix3d rotation;
+        rotation << 0, 0, 1,
+                    -1, 0, 0,
+                    0, -1, 0;
+        Eigen::Matrix3d rMat = r_mat * rotation;
+        Eigen::Vector3d tVec = r_mat * Eigen::Vector3d(gp->vector_x, gp->vector_y, gp->vector_z);
+        double yaw = - params[0];
+        double pitch = M_PI - (15 * M_PI / 180);
+        Eigen::Matrix<double, 3, 3> mat_x;
+        mat_x << double(1), double(0), double(0),
+                 double(0), cos(pitch), -sin(pitch),
+                 double(0), sin(pitch), cos(pitch);
+        Eigen::Matrix<double, 3, 3> mat_y;
+        mat_y << cos(yaw), double(0), sin(yaw),
+                double(0), double(1), double(0),
+                -sin(yaw), double(0), cos(yaw);
+        Eigen::Matrix<double, 3, 3> rotation_matrix = rMat.inverse() * rotation * mat_y * mat_x;
+        cv::Mat rvec;
+        cv::eigen2cv(rotation_matrix, rvec);
+        cv::Rodrigues(rvec, rvec);
+        cv::Mat tvec = (cv::Mat_<T>(3, 1) << T(known_x_), T(known_y_), T(known_z_));
 
         std::vector<cv::Point2f> projected_points;
         cv::projectPoints(objPoints_, rvec, tvec, K_, dist_, projected_points);
@@ -365,51 +378,22 @@ struct ReprojectionError {
             residuals[2 * i + 1] = T(diff.y);
         }
 
-
-        // Eigen::Matrix<T, 3, 3> mat_x;
-        // mat_x << T(1), T(0), T(0),
-        //          T(0), cos(pitch), -sin(pitch),
-        //          T(0), sin(pitch), cos(pitch);
-
-        // Eigen::Matrix<T, 3, 3> mat_y;
-        // mat_y << cos(yaw), T(0), sin(yaw),
-        //         T(0), T(1), T(0),
-        //         -sin(yaw), T(0), cos(yaw);
-
-        // Eigen::Matrix<T, 3, 3> rotation_matrix = mat_y * mat_x;
-
-        // Eigen::AngleAxis<T> angle_axis(rotation_matrix);
-        // Eigen::Matrix<T, 3, 1> rvec_local = angle_axis.angle() * angle_axis.axis();
-        // Eigen::Matrix<T, 3, 1> tvec_local(T(known_x_), T(known_y_), T(known_z_));
-
-        // std::vector<cv::Point2f> projected_points;
-
-        // cv::Mat rvec_cv, tvec_cv;
-        // cv::eigen2cv(rvec_local, rvec_cv);
-        // cv::eigen2cv(tvec_local, tvec_cv);
-
-        // cv::projectPoints(objPoints_, rvec_cv, tvec_cv, K_, dist_, projected_points);
-
-        // for (size_t i = 0; i < projected_points.size(); ++i) {
-        //     cv::Point2f diff = projected_points[i] - imgPoints_[i];
-        //     residuals[2 * i] = T(diff.x);
-        //     residuals[2 * i + 1] = T(diff.y);
-        // }
-
         return true;
 }
 
 
     static ceres::CostFunction* Create(const std::vector<cv::Point3f>& objPoints,
                                     const std::vector<cv::Point2f>& imgPoints,
+                                    double camera_yaw,
                                     double camera_pitch,
                                     double known_x,
                                     double known_y,
                                     double known_z,
                                     const cv::Mat& K,
-                                    const cv::Mat& dist) {
+                                    const cv::Mat& dist,
+                                    GlobalParam *gp) {
         return (new ceres::NumericDiffCostFunction<ReprojectionError, ceres::CENTRAL, ceres::DYNAMIC, 1>(
-            new ReprojectionError(objPoints, imgPoints, camera_pitch, known_x, known_y, known_z, K, dist),
+            new ReprojectionError(objPoints, imgPoints, camera_yaw, camera_pitch, known_x, known_y, known_z, K, dist, gp),
             ceres::TAKE_OWNERSHIP, imgPoints.size() * 2));
     }
 
@@ -417,10 +401,12 @@ struct ReprojectionError {
     const std::vector<cv::Point2f>& imgPoints_;
     cv::Mat K_;
     cv::Mat dist_;
+    double camera_yaw_;
     double camera_pitch_;
     double known_x_;
     double known_y_;
     double known_z_;
+    GlobalParam *gp;
 };
 
 void AimAuto::optimizeYawZ(
@@ -429,6 +415,7 @@ void AimAuto::optimizeYawZ(
     double known_x,
     double known_y,
     double known_z,
+    double camera_yaw,
     double camera_pitch,
     double &yaw,
     const cv::Mat& K,
@@ -437,7 +424,7 @@ void AimAuto::optimizeYawZ(
     /*优化过程*/
     double param[1] = {yaw};
     ceres::Problem problem;
-    ceres::CostFunction* cost_function = ReprojectionError::Create(objPoints, imgPoints, 15*M_PI/180 + camera_pitch, known_x, known_y, known_z, K, dist);
+    ceres::CostFunction* cost_function = ReprojectionError::Create(objPoints, imgPoints, camera_yaw, camera_pitch, known_x, known_y, known_z, K, dist, this->gp);
     problem.AddResidualBlock(cost_function, nullptr, param);
     
     ceres::Solver::Options options;
