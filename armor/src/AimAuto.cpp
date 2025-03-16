@@ -137,9 +137,6 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
     {
         number = 0;
         convertNumber(armor.number, number);
-        if (number == 6){ // base
-            continue;
-        }
         Armor tar;
         pnp_solve(armor, ts, src, tar, number);
         tar_list.push_back(tar);
@@ -234,6 +231,7 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
 #ifdef DEBUGMODE
     if (ts.message.crc){
         cv::Scalar color = ts.message.crc == 1 ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 0, 255);
+        cv::putText(src, "armor_flag: " + std::to_string(ts.message.armor_flag), cv::Point(1000, 100), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
         cv::putText(src, "latency: " + std::to_string(ts.message.latency), cv::Point(1050, 150), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
         cv::putText(src, "xc: " + std::to_string(ts.message.x_c), cv::Point(1130, 200), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
         cv::putText(src, "vx: " + std::to_string(ts.message.v_x), cv::Point(1130, 250), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
@@ -252,7 +250,7 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
 
 void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armor &tar, int number)
 {
-    number = 5;
+    // number = 5;
     //===============pnp解算===============//
     std::vector<cv::Point3f> objPoints;
     if (!gp->isBigArmor[number])

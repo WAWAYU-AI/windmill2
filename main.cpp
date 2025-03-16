@@ -163,10 +163,6 @@ void *ReadFunction(void *arg) // 读线程
         {
             gp.initGlobalParam(buffers[current_buffer].translator.message.status / 5);
         }
-        if (buffers[current_buffer].translator.message.armor_flag != gp.armorStat)
-        {
-            MManager.ChangeBigArmor(buffers[current_buffer].translator);
-        }
 #endif// NOPORT
 
         buffers[current_buffer].time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
