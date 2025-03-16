@@ -88,16 +88,16 @@ void AimAuto::draw_armor_back(cv::Mat &pic, Armor &armor, int number, cv::Scalar
     cv::Mat _K = (cv::Mat_<double>(3, 3) << (float)gp->fx, 0, (float)gp->cx, 0, (float)gp->fy, (float)gp->cy, 0, 0, 1);
     std::vector<float> _dist = {(float)gp->k1, (float)gp->k2, (float)gp->p1, (float)gp->p2, (float)gp->k3};
     cv::projectPoints(objPoints, rVec, tVec, _K, _dist, imgPoints);
-    cv::line(pic, imgPoints[0], imgPoints[1], color, 2);
-    cv::line(pic, imgPoints[1], imgPoints[2], color, 2);
-    cv::line(pic, imgPoints[2], imgPoints[3], color, 2);
-    cv::line(pic, imgPoints[3], imgPoints[0], color, 2);
+    cv::line(pic, imgPoints[0], imgPoints[1], color, 1);
+    cv::line(pic, imgPoints[1], imgPoints[2], color, 1);
+    cv::line(pic, imgPoints[2], imgPoints[3], color, 1);
+    cv::line(pic, imgPoints[3], imgPoints[0], color, 1);
     cv::Point2f center = (imgPoints[0] + imgPoints[1] + imgPoints[2] + imgPoints[3]) / 4;  
     armor.apex[0] = imgPoints[0];
     armor.apex[1] = imgPoints[1];
     armor.apex[2] = imgPoints[2];
     armor.apex[3] = imgPoints[3];
-    cv::circle(pic, center, 8, color, 2);
+    cv::circle(pic, center, 8, color, 1);
 }
 
 AimAuto::AimAuto(GlobalParam *gp)
@@ -214,7 +214,7 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
         std::vector<Armor> target_armors;
         tracker -> calc_armor_back(target_armors, ts);
         for (auto &armor : target_armors){
-            draw_armor_back(src, armor, 2, cv::Scalar(0, 255, 0));
+            draw_armor_back(src, armor, 2, armor.type==5 ? cv::Scalar(0, 255, 255) : cv::Scalar(0, 255, 0));
             for (auto &tar : tar_list){
                 float dyaw = tar.yaw - armor.yaw;
                 if (abs(atan2(sin(dyaw), cos(dyaw))) > 0.75) continue;
@@ -230,26 +230,29 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
         else cnt = 0;
         if (cnt < gp->max_lost_frame) ts.message.crc = 2;
     }
-    #ifdef DEBUGMODE
-        if (ts.message.crc){
-        cv::putText(src, "latency: " + std::to_string(ts.message.latency), cv::Point(1050, 150), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
-        cv::putText(src, "xc: " + std::to_string(ts.message.x_c), cv::Point(1130, 200), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
-        cv::putText(src, "vx: " + std::to_string(ts.message.v_x), cv::Point(1130, 250), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
-        cv::putText(src, "yc: " + std::to_string(ts.message.y_c), cv::Point(1130, 300), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
-        cv::putText(src, "vy: " + std::to_string(ts.message.v_y), cv::Point(1130, 350), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
-        cv::putText(src, "z1: " + std::to_string(ts.message.z1 ), cv::Point(1130, 400), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
-        cv::putText(src, "z2: " + std::to_string(ts.message.z2 ), cv::Point(1130, 450), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
-        cv::putText(src, "vz: " + std::to_string(ts.message.v_z), cv::Point(1130, 500), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
-        cv::putText(src, "r1: " + std::to_string(ts.message.r1 ), cv::Point(1130, 550), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
-        cv::putText(src, "r2: " + std::to_string(ts.message.r2 ), cv::Point(1130, 600), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
-        cv::putText(src, "yaw: " + std::to_string(ts.message.yaw_a), cv::Point(1110, 650), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
-        cv::putText(src, "vyaw: " + std::to_string(ts.message.vyaw), cv::Point(1100, 700), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 1);
+    else cnt = 0;
+#ifdef DEBUGMODE
+    if (ts.message.crc){
+        cv::Scalar color = ts.message.crc == 1 ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 0, 255);
+        cv::putText(src, "latency: " + std::to_string(ts.message.latency), cv::Point(1050, 150), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "xc: " + std::to_string(ts.message.x_c), cv::Point(1130, 200), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "vx: " + std::to_string(ts.message.v_x), cv::Point(1130, 250), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "yc: " + std::to_string(ts.message.y_c), cv::Point(1130, 300), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "vy: " + std::to_string(ts.message.v_y), cv::Point(1130, 350), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "z1: " + std::to_string(ts.message.z1 ), cv::Point(1130, 400), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "z2: " + std::to_string(ts.message.z2 ), cv::Point(1130, 450), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "vz: " + std::to_string(ts.message.v_z), cv::Point(1130, 500), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "r1: " + std::to_string(ts.message.r1 ), cv::Point(1130, 550), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "r2: " + std::to_string(ts.message.r2 ), cv::Point(1130, 600), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "yaw: " + std::to_string(ts.message.yaw_a), cv::Point(1110, 650), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "vyaw: " + std::to_string(ts.message.vyaw), cv::Point(1100, 700), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
     }
 #endif // DEBUGMODE
 }
 
 void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armor &tar, int number)
 {
+    number = 5;
     //===============pnp解算===============//
     std::vector<cv::Point3f> objPoints;
     if (!gp->isBigArmor[number])
@@ -314,9 +317,9 @@ void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armo
     cv::Rodrigues(rotation_matrix, rVec);
     tar.rVec = rVec;    // 世界系到车体系旋转向量
 
-    std::cout << "yaw before: " << tar.yaw << std::endl;
-    optimizeYawZ(objPoints, imagePoints, tar.center.x, tar.center.y, tar.center.z, ts.message.yaw, ts.message.pitch, tar.yaw, _K, _dist);
-    std::cout << "yaw after : " << tar.yaw << std::endl;
+    // std::cout << "yaw before: " << tar.yaw << std::endl;
+    // optimizeYawZ(objPoints, imagePoints, tar.center.x, tar.center.y, tar.center.z, ts.message.yaw, ts.message.pitch, tar.yaw, _K, _dist);
+    // std::cout << "yaw after : " << tar.yaw << std::endl;
     //=========================================//
 }
 

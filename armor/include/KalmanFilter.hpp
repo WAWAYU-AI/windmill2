@@ -27,7 +27,7 @@ public:
     // Update the estimated state based on measurement
     Eigen::MatrixXd update(const Eigen::VectorXd & z);
 
-    Eigen::MatrixXd get_X(){
+    Eigen::VectorXd& get_X(){
         return x_post;
     }
 

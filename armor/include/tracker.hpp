@@ -37,7 +37,7 @@ private:
     std::vector<int> lost_frame_count;
     std::vector<int> number_list;
     std::vector<Armor> armors_pred;
-    bool have_number[8];
+    bool have_number[8] = {false};
 
     void refine_zVector(int ekf_id);
     void create_new_ekf(Armor &armor);
@@ -55,5 +55,12 @@ private:
     VoidMatFunc u_q;        // Process noise covariance matrix
     VecMatFunc u_r;         // Measurement noise covariance matrix
     VecVecFunc nomolize_residual;  // Nomalize residual function
+
+    VecVecFunc f_outpose;           // State transition vector function
+    VecVecFunc h_outpose;           // Observation nonlinear vector function
+    VecMatFunc j_f_outpose;         // Jacobian of f()
+    VecMatFunc j_h_outpose;         // Jacobian of h()
+    VoidMatFunc u_q_outpose;        // Process noise covariance matrix
+    VecMatFunc u_r_outpose;         // Measurement noise covariance matrix
 };
 #endif // ARMOR_PROCESSOR__TRACKER_HPP_
