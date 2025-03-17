@@ -17,7 +17,7 @@
 // }
 
 // x << xc, vx, yc, vy, z1, z2, vz, r1, r2, yaw, vyaw;
-#define OUTPOSE_R 553
+#define OUTPOSE_R 553/2.0
 
 inline double dyaw(double yaw1, double yaw2){
     double ans = fmod(abs(yaw1 - yaw2), 2*M_PI);
@@ -583,7 +583,7 @@ Tracker::Tracker(GlobalParam &gp){
     u_q_outpose = [this, &gp]()
     {
         Eigen::MatrixXd q(11, 11);
-        double t{dt}, x{gp.s2qxyz/50}, y{gp.s2qyaw};
+        double t{dt}, x{gp.s2qxyz}, y{gp.s2qyaw};
         // 计算各种噪声参数
         double q_x_x{pow(t, 4) / 4 * x};
         double q_y_y{pow(t, 4) / 4 * y}, q_y_vy{pow(t, 3) / 2 * y}, q_vy_vy{pow(t, 2) * y};

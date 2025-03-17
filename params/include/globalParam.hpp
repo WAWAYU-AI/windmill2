@@ -264,7 +264,7 @@ struct GlobalParam
     //============================自瞄相关参数===============================//
     double threshold_low = 250.0;
     int armorStat = 0;
-    bool isBigArmor[12] = {0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    bool isBigArmor[12] = {0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0};
     // double max_match_distance = 0.5;
     // double max_match_yaw_diff = 0.75;
     double cost_threshold = 1000;
