@@ -106,6 +106,7 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
             else{
                 ekf_list[i].update(z_vector_list[i].segment(0, 12));
                 ekf_list[i].get_X()(7) = OUTPOSE_R;
+                ekf_list[i].get_X()(5) = ekf_list[i].get_X()(4);
             }
         }
         if (ekf_list[i].get_X()(7)<100 || ekf_list[i].get_X()(8)<100 || abs(ekf_list[i].get_X()(10)) > 20){
