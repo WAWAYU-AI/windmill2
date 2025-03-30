@@ -266,7 +266,6 @@ void *OperationFunction(void *arg)
             aim.auto_aim(pic, translator, dt);
             double time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
             translator.message.latency = (time_stamp - last_time_stamp) * 1000;
-            std::cout << translator.message.v_z << std::endl;
             MManager.write(translator, *serialPort);
 // #ifdef DEBUGMODE
 #ifdef SHOW_FPS
