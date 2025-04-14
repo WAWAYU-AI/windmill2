@@ -71,7 +71,7 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
             auto &u = armors_curr[i];
             auto &v = armors_pred[j];
             w[i][j] = cost(u, v);
-            if (u.type != number_list[j/4]) w[i][j] = -INF;
+            if (u.type != number_list[j/4]) w[i][j] = INF;
         }       
     }
     km.solve(w, matchX, matchY, gp->cost_threshold);
@@ -118,13 +118,20 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
             i--;
         }
     }
+
     if (ekf_list.size() > 0){
-        auto x = ekf_list[0].get_X();
-        // if (sqrt(pow(abs(ts.message.v_x - x(1)),2) + pow(abs(ts.message.v_y - x(3)),2))/dt > 5000) { // 加速度过大，不瞄准
-        //     ts.message.crc = 0;
-        // }else{
-            ts.message.crc = 1;
-        // }
+        float min_dangle = INF;
+        for(int i = 0;i < ekf_list.size();i++){
+            auto x = ekf_list[i].get_X();
+            float dangle = atan2(x(2),x(0)) - ts.message.yaw;
+            dangle = abs(atan2(sin(dangle),cos(dangle)));
+            if(dangle < min_dangle){
+                min_dangle = dangle;
+                index = i;
+            }
+        }
+        auto x = ekf_list[index].get_X();
+        ts.message.crc = 1;
         ts.message.armor_flag = number_list[0];
         ts.message.x_c = x(0);
         ts.message.v_x = x(1);
@@ -203,7 +210,7 @@ void Tracker::refine_zVector(int ekf_id){
         if (z.segment(0, 4) != Eigen::VectorXd::Zero(4)){
             armor = calcArmor(xc, yc, z(2), OUTPOSE_R, z(3) + M_PI / 3 *2);
             z.segment(4, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
-            armor = calcArmor(xc, yc, z(2), OUTPOSE_R, z(3) - M_PI / 3 *2);
+            armor = calcArmor(xc, yc, z(2), OUTPOSE_R, z(3) + M_PI / 3 *4);
             z.segment(8, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
             r_xy_correction[1] *= 10;
             r_xy_correction[2] *= 10;
@@ -211,7 +218,7 @@ void Tracker::refine_zVector(int ekf_id){
         else if (z.segment(4, 4) != Eigen::VectorXd::Zero(4)){
             armor = calcArmor(xc, yc, z(6), OUTPOSE_R, z(7) + M_PI / 3 *2);
             z.segment(8, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
-            armor = calcArmor(xc, yc, z(6), OUTPOSE_R, z(7) - M_PI / 3 *2);
+            armor = calcArmor(xc, yc, z(6), OUTPOSE_R, z(7) + M_PI / 3 *4);
             z.segment(0, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
             r_xy_correction[2] *= 10;
             r_xy_correction[0] *= 10;
@@ -219,7 +226,7 @@ void Tracker::refine_zVector(int ekf_id){
         else if (z.segment(8, 4) != Eigen::VectorXd::Zero(4)){
             armor = calcArmor(xc, yc, z(10), OUTPOSE_R, z(11) + M_PI / 3 *2);
             z.segment(0, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
-            armor = calcArmor(xc, yc, z1, OUTPOSE_R, z(11) - M_PI / 3 *2);
+            armor = calcArmor(xc, yc, z1, OUTPOSE_R, z(11) + M_PI / 3 *4);
             z.segment(4, 4) << armor.position(0), armor.position(1), armor.position(2), armor.yaw;
             r_xy_correction[0] *= 10;
             r_xy_correction[1] *= 10;
@@ -305,9 +312,9 @@ void Tracker::draw(const std::vector<Armor> armor_curr){
 
 void Tracker::calc_armor_back(std::vector<Armor> &armors, Translator &ts){
     if (ekf_list.size() == 0)return;
-    auto x = ekf_list[0].get_X();
+    auto x = ekf_list[index].get_X();
     double xc = x(0), yc = x(2), z1 = x(4), z2 = x(5), r1 = x(7), r2 = x(8), yaw = x(9);
-    if (number_list[0] == 5)
+    if (number_list[index] == 5)
         armors = {
             calcArmor(xc, yc, z1, r1, yaw),
             calcArmor(xc, yc, z1, r1, yaw + M_PI/3*2),
@@ -332,11 +339,11 @@ void Tracker::calc_armor_back(std::vector<Armor> &armors, Translator &ts){
     Eigen::Matrix3d rMat = r_mat * rotation;
     Eigen::Vector3d tVec = r_mat * Eigen::Vector3d(gp->vector_x, gp->vector_y, gp->vector_z);
     for (auto &armor : armors){
-        armor.type = number_list[0];
+        armor.type = number_list[index];
         armor.position = rMat.inverse() * (armor.position - tVec);
         armor.center = cv::Point3f(armor.position(0), armor.position(1), armor.position(2));
         double yaw = - armor.yaw;
-        double pitch = (number_list[0] != 5 ? M_PI - (15 * M_PI / 180) : M_PI - (-15 * M_PI / 180));
+        double pitch = (number_list[index] != 5 ? M_PI - (15 * M_PI / 180) : M_PI - (-15 * M_PI / 180));
         Eigen::Matrix<double, 3, 3> mat_x;
         mat_x << double(1), double(0), double(0),
                  double(0), cos(pitch), -sin(pitch),
@@ -504,6 +511,9 @@ Tracker::Tracker(GlobalParam &gp){
         // 更新状态：位置和速度
         Eigen::VectorXd x_new = x;
         x_new(7) = OUTPOSE_R;
+        x_new(8) = OUTPOSE_R;
+        if(x_new(10) > 2.2) x_new(10) = 0.8 * M_PI;
+        else if(x_new(10) < -2.2) x_new(10) = -0.8 * M_PI; 
         x_new(9) += x(10)* dt; // 更新yaw
         return x_new;
     };
@@ -609,9 +619,9 @@ Tracker::Tracker(GlobalParam &gp){
     {
         Eigen::DiagonalMatrix<double, 12> r;
         double xy = gp.r_xy_factor;
-        r.diagonal() << abs(xy * z[0]) * r_xy_correction[0],  abs(xy * z[1]) * r_xy_correction[0],  gp.r_z, r_yaw_corrected,
-                        abs(xy * z[4]) * r_xy_correction[1],  abs(xy * z[5]) * r_xy_correction[1],  gp.r_z, r_yaw_corrected,
-                        abs(xy * z[8]) * r_xy_correction[2],  abs(xy * z[9]) * r_xy_correction[2],  gp.r_z, r_yaw_corrected; // 定义观测噪声
+        r.diagonal() << abs(xy * z[0]) * r_xy_correction[0],  abs(xy * z[1]) * r_xy_correction[0],  gp.r_z * 10, r_yaw_corrected * 10,
+                        abs(xy * z[4]) * r_xy_correction[1],  abs(xy * z[5]) * r_xy_correction[1],  gp.r_z * 10, r_yaw_corrected * 10,
+                        abs(xy * z[8]) * r_xy_correction[2],  abs(xy * z[9]) * r_xy_correction[2],  gp.r_z * 10, r_yaw_corrected * 10; // 定义观测噪声
         return r;
     };
 }

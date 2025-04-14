@@ -88,16 +88,16 @@ void AimAuto::draw_armor_back(cv::Mat &pic, Armor &armor, int number, cv::Scalar
     cv::Mat _K = (cv::Mat_<double>(3, 3) << (float)gp->fx, 0, (float)gp->cx, 0, (float)gp->fy, (float)gp->cy, 0, 0, 1);
     std::vector<float> _dist = {(float)gp->k1, (float)gp->k2, (float)gp->p1, (float)gp->p2, (float)gp->k3};
     cv::projectPoints(objPoints, rVec, tVec, _K, _dist, imgPoints);
-    cv::line(pic, imgPoints[0], imgPoints[1], color, 1);
-    cv::line(pic, imgPoints[1], imgPoints[2], color, 1);
-    cv::line(pic, imgPoints[2], imgPoints[3], color, 1);
-    cv::line(pic, imgPoints[3], imgPoints[0], color, 1);
+    cv::line(pic, imgPoints[0], imgPoints[1], color, 2);
+    cv::line(pic, imgPoints[1], imgPoints[2], color, 2);
+    cv::line(pic, imgPoints[2], imgPoints[3], color, 2);
+    cv::line(pic, imgPoints[3], imgPoints[0], color, 2);
     cv::Point2f center = (imgPoints[0] + imgPoints[1] + imgPoints[2] + imgPoints[3]) / 4;  
     armor.apex[0] = imgPoints[0];
     armor.apex[1] = imgPoints[1];
     armor.apex[2] = imgPoints[2];
     armor.apex[3] = imgPoints[3];
-    cv::circle(pic, center, 8, color, 1);
+    cv::circle(pic, center, 8, color, 2);
 }
 
 AimAuto::AimAuto(GlobalParam *gp)
@@ -314,10 +314,7 @@ void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armo
     rotation_matrix = a * b * rotation_matrix;
     cv::Rodrigues(rotation_matrix, rVec);
     tar.rVec = rVec;    // 世界系到车体系旋转向量
-
-    // std::cout << "yaw before: " << tar.yaw << std::endl;
-    // optimizeYawZ(objPoints, imagePoints, tar.center.x, tar.center.y, tar.center.z, ts.message.yaw, ts.message.pitch, tar.yaw, _K, _dist);
-    // std::cout << "yaw after : " << tar.yaw << std::endl;
+    if(number != 5)optimizeYawZ(objPoints, imagePoints, tar.center.x, tar.center.y, tar.center.z, ts.message.yaw, ts.message.pitch, tar.yaw, _K, _dist);
     //=========================================//
 }
 

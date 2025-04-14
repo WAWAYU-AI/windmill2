@@ -147,10 +147,10 @@ std::vector<UnsolvedArmor> Detector::detect(cv::Mat &input, const int color)
 #endif
     lights_ = findLights(input, binary_img);
 #ifdef DEBUGMODE
-    for (auto light : lights_)
-    {
-        cv::rectangle(input, light.boundingRect2f(), cv::Scalar(255, 255, 255), 1);
-    }
+    // for (auto light : lights_)
+    // {
+    //     cv::rectangle(input, light.boundingRect2f(), cv::Scalar(255, 255, 255), 1);
+    // }
 #endif
     armors_ = matchLights(lights_);
     if (!armors_.empty())

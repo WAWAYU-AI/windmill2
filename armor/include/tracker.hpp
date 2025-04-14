@@ -18,7 +18,6 @@
 #include <string>
 #include <vector>
 
-enum class ArmorsNum { NORMAL_4 = 4, BALANCE_2 = 2, OUTPOST_3 = 3 };
 
 class Tracker{
 public:
@@ -38,6 +37,7 @@ private:
     std::vector<int> number_list;
     std::vector<Armor> armors_pred;
     bool have_number[8] = {false};
+    int index = 0;
 
     void refine_zVector(int ekf_id);
     void create_new_ekf(Armor &armor);

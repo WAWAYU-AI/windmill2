@@ -212,10 +212,15 @@ void MessageManager::recordFrame(cv::Mat &pic)
     }
     frame_accum++;
 }
-void MessageManager::LogMessage(Translator &ts,GlobalParam &gp)
+void MessageManager::ReadLogMessage(Translator &ts,GlobalParam &gp)
 {
     LOG_IF(INFO, gp.switch_INFO) << "read successful";
     LOG_IF(INFO, gp.switch_INFO) << "当前pitch: " << ts.message.pitch;
     LOG_IF(INFO, gp.switch_INFO) << "当前yaw: " << ts.message.yaw;
     LOG_IF(INFO, gp.switch_INFO) << "当前状态: " << +ts.message.status;
+}
+void MessageManager::WriteLogMessage(Translator &ts,GlobalParam &gp)
+{
+    LOG_IF(INFO, gp.switch_INFO) << "write successful";
+    LOG_IF(INFO, gp.switch_INFO) << "当前crc: " << ts.message.crc;
 }

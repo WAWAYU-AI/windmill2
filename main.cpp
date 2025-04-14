@@ -40,25 +40,12 @@ MessageManager MManager(gp);
 // 相机类
 Camera camera(gp);
 #endif
+Translator temp;
+Translator translator;
+cv::Mat pic;
 #ifdef NOPORT
-const int COLOR = RED;
+const int COLOR = BLUE;
 #endif // NOPORT
-
-// 定义双缓冲区
-struct DataBuffer{
-    Translator translator;
-    cv::Mat pic;
-    bool data_ready; // 标志数据是否准备好
-    double time_stamp; // 时间戳
-};
-DataBuffer buffers[2]; // 两个缓冲区
-
-// 定义线程锁和条件变量
-pthread_mutex_t Mutex= PTHREAD_MUTEX_INITIALIZER;
-pthread_barrier_t Barrier;
-
-// 定义退出标志位
-bool exit_flag = false;
 
 // 读线程，负责读取串口信息以及取流
 void *ReadFunction(void *arg);
@@ -66,126 +53,46 @@ void *ReadFunction(void *arg);
 void *OperationFunction(void *arg);
 
 int main(int argc, char **argv)
-{
+{   
+    printf("welcome\n");
     SerialPort *serialPort = new SerialPort(argv[1]);
     serialPort->InitSerialPort(int(*argv[2] - '0'), 8, 1, 'N');
 #ifndef NOPORT
-    Translator temp_translator;
-    MManager.read(temp_translator, *serialPort);
+    MManager.read(temp, *serialPort);
     // 通过电控发来的标志位是0～4还是5～9来确定是红方还是蓝方，其中0～4是红方，5～9是蓝方
-    MManager.initParam(temp_translator.message.status / 5 == 0 ? RED : BLUE);
+    MManager.initParam(temp.message.status / 5 == 0 ? RED : BLUE);
 #else
     // 再没有串口的时候直接设定颜色，这句代码可以根据需要进行更改
     MManager.initParam(COLOR);
 #endif // NOPORT
 
-    // 初始化线程锁和条件变量
-    pthread_barrier_init(&Barrier, nullptr, 2);
-    // 输出日志，开始初始化
     pthread_t readThread;
     pthread_t operationThread;
 
     // 开启线程
     pthread_create(&readThread, NULL, ReadFunction, serialPort);
     pthread_create(&operationThread, NULL, OperationFunction, serialPort);
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(0, &cpuset);
 
-    // 等待线程结束
-    pthread_join(readThread, NULL);
-    pthread_join(operationThread, NULL);
-    
-    // 销毁线程锁和条件变量
-    pthread_mutex_destroy(&Mutex);
-    pthread_barrier_destroy(&Barrier);
+    pthread_join(operationThread,NULL);
     
     return 0;
 }
 
 void *ReadFunction(void *arg) // 读线程
 {
-#ifdef RECORDVIDEO
-    cv::VideoWriter *recorder = NULL;
-    std::string path = "../video/record/";
-    path = path + GetTime() + "/";
-    std::filesystem::create_directories(path);
-    int coder = cv::VideoWriter::fourcc('H', '2', '6', '4');
+#ifdef THREADANALYSIS
+    printf("read function init successful\n");
 #endif
-    int current_buffer = 0; // 当前使用的缓冲区
-    int cnt = RECORD_FRAME_COUNT;
-    int idx = 0;
-#ifndef VIRTUALGRAB
-    camera.init();
-#endif 
     // 传入的参数赋给串口，以获得串口数据
     SerialPort *serialPort = (SerialPort *)arg;
     while (1)
     {
-#ifdef RECORDVIDEO
-        cv::Mat pic = buffers[current_buffer].pic;
-        if(!pic.empty()) cv::resize(pic, pic, cv::Size(600, 450));
-        cnt ++;
-        if (cnt > RECORD_FRAME_COUNT && idx <= 50)
-        {
-            cnt = 0;
-            if(recorder != NULL){
-                recorder->release();
-                delete recorder;
-            }
-            idx ++;
-            recorder = new cv::VideoWriter(path + std::to_string(idx) + ".mp4", coder, 60.0, cv::Size(600, 450), true);
-        }
-        if(!pic.empty() && idx <= 50) recorder->write(pic);
-#endif
         chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
-        // pthread_mutex_lock(&Mutex);
-        MManager.read(buffers[current_buffer].translator, *serialPort);
-        if (buffers[current_buffer].translator.message.status % 5 != 0)
-        {
-#ifndef VIRTUALGRAB
-            camera.change_attack_mode(ENERGY, gp);
-#endif
-            gp.attack_mode = ENERGY;
-        }
-        else
-        {
-#ifndef VIRTUALGRAB
-            camera.change_attack_mode(ARMOR, gp);
-#endif
-            gp.attack_mode = ARMOR;
-        }
-#ifndef NOPORT
-        MManager.LogMessage(buffers[current_buffer].translator, gp);
-        // translator.message.status =3;
-        gp.armor_exp_time = buffers[current_buffer].translator.message.status / 5 ? gp.red_exp_time : gp.blue_exp_time;
-        if (buffers[current_buffer].translator.message.status / 5 != gp.color)
-        {
-            gp.initGlobalParam(buffers[current_buffer].translator.message.status / 5);
-        }
-#endif// NOPORT
-
-        buffers[current_buffer].time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
-
-#ifndef VIRTUALGRAB
-
-#ifdef DEBUGMODE
-        camera.set_param_mult(gp);
-#endif
-        camera.get_pic(&buffers[current_buffer].pic, gp);
-        buffers[current_buffer].data_ready = true;
-#else
-        MManager.getFrame(buffers[current_buffer].pic, buffers[current_buffer].translator);
-#endif
-        
-        // pthread_mutex_unlock(&Mutex);
-        // 切换缓冲区
-        current_buffer = (current_buffer + 1) % 2;
-        
+        MManager.read(temp, *serialPort);
+        usleep(100);
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
+        MManager.ReadLogMessage(temp, gp);
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-
-        pthread_barrier_wait(&Barrier);     // 线程同步
         printf("read   duration: %ld ms\n", duration);
     }
     return NULL;
@@ -193,15 +100,28 @@ void *ReadFunction(void *arg) // 读线程
 
 void *OperationFunction(void *arg)
 {
+#ifdef RECORDVIDEO
+    cv::VideoWriter *recorder = NULL;
+    std::string path = "../video/record/";
+    path = path + GetTime() + "/";
+    std::filesystem::create_directories(path);
+    int coder = cv::VideoWriter::fourcc('H', '2', '6', '4');
+    int cnt = RECORD_FRAME_COUNT;
+    int idx = 0;
+#endif
+#ifdef THREADANALYSIS
+    printf("operation function init successful\n");
+#endif
     SerialPort *serialPort = (SerialPort *)arg;
     // 实例化自瞄类
     AimAuto aim(&gp);
     // 实例化UI类
     UIManager UI(gp);
-    cv::Mat pic;
-    Translator translator;
     double dt = 0;
     double last_time_stamp = 0;
+#ifndef VIRTUALGRAB
+    camera.init();
+#endif 
 #ifdef SHOW_FPS
     int fps = 0;
     int frame_count = 0;
@@ -220,27 +140,62 @@ void *OperationFunction(void *arg)
 
 #endif // DEBUGMODE
     //========================//
-    uint8_t error_times{0};
-    int processing_buffer = 1; // 当前处理的缓冲区
     int empty_frame_count = 0;
-    // cv::waitKey(200);
     while (1)
     {
+#ifdef RECORDVIDEO
+        cv::Mat pic = pic;
+        if(!pic.empty()) cv::resize(pic, pic, cv::Size(600, 450));
+        cnt ++;
+        if (cnt > RECORD_FRAME_COUNT && idx <= 50)
+        {
+            cnt = 0;
+            if(recorder != NULL){
+                recorder->release();
+                delete recorder;
+            }
+            idx ++;
+            recorder = new cv::VideoWriter(path + std::to_string(idx) + ".mp4", coder, 60.0, cv::Size(600, 450), true);
+        }
+        if(!pic.empty() && idx <= 50) recorder->write(pic);
+#endif
         chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
 #ifndef NOPORT
-        translator = buffers[processing_buffer].translator;
+        MManager.copy(temp, translator);
 #else
-        MManager.FakeMessage(translator);
-#endif // NOPORT
-        pic = buffers[processing_buffer].pic;
+        MManager.FakeMessage(translator); 
+#endif       
+        if (translator.message.status % 5 != 0)
+        {
+#ifndef VIRTUALGRAB
+            camera.change_attack_mode(ENERGY, gp);
+#endif
+            gp.attack_mode = ENERGY;
+        }
+        else
+        {
+#ifndef VIRTUALGRAB
+            camera.change_attack_mode(ARMOR, gp);
+#endif
+            gp.attack_mode = ARMOR;
+        }
+        gp.armor_exp_time = translator.message.status / 5 ? gp.red_exp_time : gp.blue_exp_time;
+#ifndef NOPORT
+        if (translator.message.status / 5 != gp.color)
+        {
+            gp.initGlobalParam(translator.message.status / 5);
+        }
+#endif// NOPORT
 
-        buffers[processing_buffer].data_ready = false;
+#ifndef VIRTUALGRAB
 
-        if (last_time_stamp == 0) dt = 0;
-        else dt = buffers[processing_buffer].time_stamp - last_time_stamp;
-        last_time_stamp = buffers[processing_buffer].time_stamp;
-
-        processing_buffer = (processing_buffer + 1) % 2;
+#ifdef DEBUGMODE
+        camera.set_param_mult(gp);
+#endif
+        camera.get_pic(&pic, gp);
+#else
+        MManager.getFrame(pic, translator);
+#endif
         // 如果图片为空，不执行
         if (pic.empty()){
 #ifdef VIRTUALGRAB
@@ -260,14 +215,13 @@ void *OperationFunction(void *arg)
         // 自瞄模式
         if (translator.message.status % 5 == 0)
         {
-            // dt = 0.01;
-            // translator.message.pitch = 0.3;
-            // translator.message.yaw = 0.1;
-            aim.auto_aim(pic, translator, dt);
             double time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+            dt = time_stamp - last_time_stamp;
             translator.message.latency = (time_stamp - last_time_stamp) * 1000;
-            std::cout << translator.message.v_z << std::endl;
+            last_time_stamp = time_stamp;
+            aim.auto_aim(pic, translator, dt);
             MManager.write(translator, *serialPort);
+            MManager.WriteLogMessage(translator, gp);
 // #ifdef DEBUGMODE
 #ifdef SHOW_FPS
             cv::putText(pic,"FPS: " + to_string(fps), cv::Point(1000, 50), cv::FONT_HERSHEY_SIMPLEX, 1.5, cv::Scalar(255, 255, 255), 2);
@@ -327,7 +281,6 @@ void *OperationFunction(void *arg)
 #endif
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-        pthread_barrier_wait(&Barrier);     // 线程同步
         printf("option duration: %ld ms\n", duration);
     }
     return NULL;

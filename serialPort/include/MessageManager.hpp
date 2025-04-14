@@ -39,6 +39,7 @@ public:
     void initParam(int color);
     void getFrame(cv::Mat &pic,Translator translator);
     void recordFrame(cv::Mat &pic);
-    void LogMessage(Translator &ts,GlobalParam &gp);
+    void ReadLogMessage(Translator &ts,GlobalParam &gp);
+    void WriteLogMessage(Translator &ts,GlobalParam &gp);
 };
 #endif //_MESSAGEMANAGER_HPP

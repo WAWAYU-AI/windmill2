@@ -9,7 +9,7 @@ r_balance: 3600
 g_balance: 1024
 b_balance: 1957
 enable_auto_gain: 0
-gain: 10.
+gain: 16.9
 gamma_value: 6.9999998807907104e-01
 trigger_activation: 0
 frame_rate: 180.
