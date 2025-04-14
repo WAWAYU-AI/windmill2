@@ -25,7 +25,7 @@
     # add_definitions(-DUSETRIGGERMODE)
     # add_definitions(-DTHREADANALYSIS)
     # 使用UI动态调参
-   add_definitions(-DDEBUGHIT)
+    add_definitions(-DDEBUGHIT)
 
     add_definitions(-DSENDCAMERA)
     # add_definitions(-DRECORDPIG)
@@ -44,13 +44,12 @@
         ${OpenCV_INCLUDE_DIRS}
         ${OpenVINO_INCLUDE_DIRS}
         /usr/local/cuda/include
-        /usr/local/include/apriltag
-        apriltag/include
+        # /usr/local/include/apriltag
+        # apriltag/include
         )
     link_directories(
         /opt/MVS/lib/64
         /opt/MVS/lib/32
-        /usr/local/lib
         /usr/local/lib
         )
     add_subdirectory(camera)
@@ -58,7 +57,7 @@
     add_subdirectory(serialPort)
     # add_subdirectory(windmill)
     add_subdirectory(armor)
-    add_subdirectory(apriltag)
+    # add_subdirectory(apriltag)
     add_executable(infantry_new main.cpp)
     target_link_libraries(infantry_new
         params
@@ -66,7 +65,7 @@
         serialPort
         # windmill
         armor
-        apriltag
+        # apriltag
         ${CERES_LIBRARIES}
         ${InferenceEngine_LIBRARIES}
         ${OpenCV_LIBS}
@@ -74,7 +73,7 @@
         libMvCameraControl.so
         libglog.so
         openvino::runtime
-        libapriltag.so 
+        # libapriltag.so 
         )
     set(CPACK_PROJECT_NAME ${PROJECT_NAME})
     set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

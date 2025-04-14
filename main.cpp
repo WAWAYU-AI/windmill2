@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     pthread_create(&operationThread, NULL, OperationFunction, serialPort);
 
     pthread_join(operationThread,NULL);
-    
+
     return 0;
 }
 
