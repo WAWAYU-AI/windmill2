@@ -40,6 +40,7 @@ MessageManager MManager(gp);
 // 相机类
 Camera camera(gp);
 #endif
+//通信类
 Translator temp;
 Translator translator;
 cv::Mat pic;
