@@ -1,14 +1,5 @@
 %YAML:1.0
-#=====================================全局部分=====================================#
-
-#当前颜色，0为红色，1为蓝色
-color: 1
-#调试信息，INFO等级的日志是否输出，0为不输出，1为输出
-switch_INFO: 0
-#调试信息，ERROR等级的日志是否输出，0为不输出，1为输出
-switch_ERROR: 0
-#当前获取armor中心点方法，0为HIERARCHY，1为FLOODFILL
-get_armor_mode: 0
+---
 
 #=====================================打符识别部分=====================================#
 
@@ -27,35 +18,9 @@ mask_height: 1.0
 switch_gaussian_blur: 0
 
 #======UI开关======#
-switch_UI_contours: 1
-switch_UI_areas: 1
-switch_UI: 1
-
-#======识别参数======#
-#装甲板最小面积
-s_armor_min: 300
-#装甲板最大面积
-s_armor_max: 6000
-#装甲板最小长宽比(长/宽)
-armor_ratio_min: 1.3 #1.6
-#装甲板最大长宽比(长/宽)
-armor_ratio_max: 4.8
-#装甲板最小面积比(轮廓面积/最小外包矩形面积)
-s_armor_ratio_min: 0.5
-#装甲板最大面积比(轮廓面积/最小外包矩形面积)
-s_armor_ratio_max: 1.0
-#使用漫水处理时装甲板最小面积
-s_armor_min_floodfill: 300
-#使用漫水处理时装甲板最大面积
-s_armor_max_floodfill: 6000
-#使用漫水处理时装甲板最小长宽比(长/宽)
-armor_ratio_min_floodfill: 0.7
-#使用漫水处理时装甲板最大长宽比(长/宽)
-armor_ratio_max_floodfill: 3.0
-#使用漫水处理时装甲板最小面积比(轮廓面积/最小外包矩形面积)
-s_armor_ratio_min_floodfill: 0.5
-#使用漫水处理时装甲板最大面积比(轮廓面积/最小外包矩形面积)
-s_armor_ratio_max_floodfill: 1.0
+switch_UI_contours: 0
+switch_UI_areas: 0
+switch_UI: 0
 
 #R最小面积
 s_R_min: 200 #300
@@ -77,36 +42,12 @@ R_circularity_max: 0.9 #0.9
 R_compactness_min: 12 #14
 #R最大紧致度
 R_compactness_max: 60 #27
-#扇页最小面积
-s_wing_min: 1000
-#扇页最大面积
-s_wing_max: 1400
-#扇页最小长宽比(长/宽)
-wing_ratio_min: 1.4
-#扇页最大长宽比(长/宽)
-wing_ratio_max: 5.5
-#扇页最小面积比(轮廓面积/最小外包矩形面积)
-s_wing_ratio_min: 0.2
-#扇页最大面积比(轮廓面积/最小外包矩形面积)
-s_wing_ratio_max: 3.0
-#扇页上半部分最小面积
-s_winghat_min: 200
-#扇页上半部分最大面积
-s_winghat_max: 500
-#扇页上半部分最小长宽比(长/宽)
-winghat_ratio_min: 1.7
-#扇页上半部分最大长宽比(长/宽)
-winghat_ratio_max: 3.8
-#扇页上半部分最小面积比(轮廓面积/最小外包矩形面积)
-s_winghat_ratio_min: 0.15
-#扇页上半部分最大面积比(轮廓面积/最小外包矩形面积)
-s_winghat_ratio_max: 0.4
 #能量机关半径 mm
 R: 700
 #能量机关实际宽度
 length: 0.68
 #云台标准位置离R高度
-hight: 1.2
+H_0: 1.2
 #打击点距能量机关R水平距离
 hit_dx: 6.50
 #匀速转动角速度（小符）
@@ -115,6 +56,14 @@ constant_speed: 60.0
 direction: 1
 #空气摩擦系数
 init_k_: 0.02
+#R中心到圆中心之间的距离
+d_Radius : 0.7
+#R中心点到符半径最远点之间的距离
+d_RP2 : 0.85
+#圆半径
+d_P1P3 : 0.30
+
+
 #速度函数参数
 A: 0.912
 w: 1.942
@@ -126,13 +75,31 @@ dialte1: 1
 dialte2: 1.0
 #第三次膨胀的参数
 dialte3: 1.0
-#预测偏置参数
-re_time: 0.21 #0.06~0.1约等于半个装甲板
-#二值化阈值
-#二值化最小值
-thb:  60.0
-#二值化最大值
-tht:  108.0 #108
+
+
+# #预测偏置参数                  #目前不需要部分
+# re_time: 0.21 #0.06~0.1约等于半个装甲板
+# #二值化阈值
+# #二值化最小值
+# thb:  60.0
+# #二值化最大值
+# tht:  108.0 #108
+
+
+# gap: 0                   #添加部分，如果有需要的话
+# gap_control: 1
+# min_bullet_v: 16
+
+# WM_cx: 697.7909321
+# WM_cy: 559.5145959
+# WM_fx: 2349.641948
+# WM_fy: 2351.226326
+
+# WM_k1: -0.041595291261727
+# WM_k2: 0.090691694332708
+# WM_k3: 0
+# WM_p1: 0
+# WM_p2: 0
 
 #===R感兴趣区域===#
 #左边界倍率
@@ -144,7 +111,7 @@ R_roi_xr: 0.415
 #下边界倍率
 R_roi_yb: 0.37
 #时间、速度、角速度队列的大小
-list_size: 120
+list_size: 5
 
 fake_pitch: 0.0
 fake_yaw: 0.0
@@ -152,6 +119,9 @@ fake_bullet_v: 250.0
 fake_status: 0
 fake_now_time: 0
 fake_predict_time: 0
+
+
+
 #=====================================hsv数据=====================================#
 hmin: 80
 hmax: 135 #101 #124

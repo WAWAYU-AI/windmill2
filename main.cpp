@@ -2,6 +2,8 @@
 #include "SerialPort.hpp"
 #include "camera.hpp"
 #include "globalParam.hpp"
+#include "WMIdentify.hpp"
+#include "WMPredict.hpp"
 #include <AimAuto.hpp>
 #include <UIManager.hpp>
 #include <chrono>
@@ -113,10 +115,12 @@ void *OperationFunction(void *arg)
     printf("operation function init successful\n");
 #endif
     SerialPort *serialPort = (SerialPort *)arg;
-    // 实例化自瞄类
+    // 实例化各模块对象
+    WMIdentify WMI(gp);
     AimAuto aim(&gp);
-    // 实例化UI类
     UIManager UI(gp);
+    WMI.clear();
+    WMPredict WMIPRE;
     double dt = 0;
     double last_time_stamp = 0;
 #ifndef VIRTUALGRAB
@@ -144,7 +148,6 @@ void *OperationFunction(void *arg)
     while (1)
     {
 #ifdef RECORDVIDEO
-        cv::Mat pic = pic;
         if(!pic.empty()) cv::resize(pic, pic, cv::Size(600, 450));
         cnt ++;
         if (cnt > RECORD_FRAME_COUNT && idx <= 50)
@@ -227,47 +230,27 @@ void *OperationFunction(void *arg)
             cv::putText(pic,"FPS: " + to_string(fps), cv::Point(1000, 50), cv::FONT_HERSHEY_SIMPLEX, 1.5, cv::Scalar(255, 255, 255), 2);
             printf("FPS: %d  \tLatency: %.3f ms\n", fps, translator.message.latency);
 #endif
-#ifdef DEBUGMODE
-            UI.receive_pic(pic);
-            UI.windowsManager(key, debug_t);
-            cv::Mat tmp;
-            cv::resize(pic, tmp, cv::Size((int)pic.size[1] * gp.resize, (int)pic.size[0] * gp.resize), cv::INTER_LINEAR);
-            cv::imshow("aimauto__", tmp);
-            // usleep(200 * 1000);
-#endif
-
-#ifndef DEBUGMODE
-#ifdef SSH
-            std::vector<uchar> buf;
-            cv::imencode(".jpg", pic, buf); // 将帧编码为 JPEG 格式
-
-            std::string header = "HTTP/1.1 200 OK\r\nContent-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
-            send(new_socket, header.c_str(), header.size(), 0);
-
-            std::string response = "--frame\r\nContent-Type: image/jpeg\r\n\r\n";
-            response.insert(response.end(), buf.begin(), buf.end());
-            response += "\r\n\r\n";
-            send(new_socket, response.c_str(), response.size(), 0);
-#endif
-#endif
-
-#ifdef DEBUGMODE
-            key = cv::waitKey(debug_t);
-            if (key == ' ')
-                key = cv::waitKey(0);
-            if (key == 27 || key == 'q')
-                exit(0);
-#endif // DEBUGMODE
+        } else {
+            WMI.identifyWM(pic, translator);
+            WMIPRE.StartPredict(translator, gp, WMI);
+            MManager.write(translator, *serialPort);
         }
         if (translator.message.status == 99)
             exit(0);
 
-#ifndef NOPORT
-#ifdef SSH
-        close(new_socket);
-        close(server_fd);
+#ifdef DEBUGMODE
+        UI.receive_pic(pic);
+        UI.windowsManager(key, debug_t);
+        cv::Mat tmp;
+        cv::resize(pic, tmp, cv::Size((int)pic.size[1] * gp.resize, (int)pic.size[0] * gp.resize), cv::INTER_LINEAR);
+        cv::imshow("aimauto__", tmp);
+        key = cv::waitKey(debug_t);
+        if (key == ' ')
+            key = cv::waitKey(0);
+        if (key == 27 || key == 'q')
+            exit(0);
 #endif
-#endif // NOPORT
+
 #ifdef SHOW_FPS
         frame_count++;
         auto now_time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();

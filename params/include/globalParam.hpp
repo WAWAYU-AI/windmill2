@@ -21,9 +21,9 @@
 #include <opencv2/core/types.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+
 #pragma pack(1)
-typedef struct
-{
+typedef struct {  // 自瞄结构体
 
     uint8_t head; // 0x71
     // 电控发送的信息
@@ -46,11 +46,41 @@ typedef struct
     uint16_t crc;
     uint8_t tail; // 0x4C
 
-} MessData;
+} MessData_AutoAim;
+#pragma pack()
+
+#pragma pack(1)
+typedef struct {  // 打符结构体
+
+  uint8_t head; // 0x71
+  // 电控发送的信息
+  float yaw;               // 当前车云台的yaw角，单位为弧度制
+  float pitch;             // 当前车云台的pitch角，单位为弧度制
+  uint8_t status;          // 状态位，/5==0自己为红色，/5==0自己为蓝色，%5==0为自瞄，%5==1为小符，%5==3为大符
+  uint16_t bullet_v;       // 上一次发射的弹速，单位为米每秒
+  uint8_t empty0;
+  uint32_t predict_time;   // 预测时间，单位为毫秒
+  float empty1;
+  float empty2;
+  float empty3;
+  float empty4;
+  float empty5;
+  float empty6;
+  float empty7;
+  float empty8;
+  float empty9;
+  float empty10;
+  float send_yaw;   // 目标姿态yaw角，单位为弧度制
+  float send_pitch; // 目标姿态pitch角，单位为弧度制
+  uint16_t crc;
+  uint8_t tail; // 0x4C
+
+} MessData_WM;
 #pragma pack()
 typedef union
 {
-    MessData message;
+    MessData_AutoAim message;
+    MessData_WM messageWM;
     char data[64];
 } Translator;
 
@@ -135,15 +165,15 @@ struct ArmorObject
     float prob;
     std::vector<cv::Point2f> pts;
 };
-struct WMObject
+struct WMBlade 
 {
-    cv::Point2f apex[4];
-    cv::Rect_<float> rect;
-    int cls;
-    int color;
-    int area;
-    float prob;
-    std::vector<cv::Point2f> pts;
+  // cv::Point2f apex[4];
+  // cv::Rect_<float> rect;
+  // int cls;
+  int color;
+  // int area;
+  // float prob;
+  std::vector<cv::Point2f> apex;
 };
 enum COLOR
 {
@@ -288,16 +318,86 @@ struct GlobalParam
     double big_armor_a = 112.5;  // 大装甲板的长
     double big_armor_b = 28.5;  // 大装甲板的宽
 
-    //===新加的===//
-    // int realy_mid = 720;
-    // double camera2shootBias = 0.0;
-    // double pzy = 0.0;
+    //===============打符识别部分==============//
 
-    // int binary_thres = 100;
+    //====取图蒙板参数====//
+    // 蒙板左上角相对x坐标倍数，范围0～1，TL即Left Top
+    float mask_TL_x = 0.125F;
+    // 蒙板左上角相对y坐标倍数，范围0～1，TL即Left Top
+    float mask_TL_y = 0.0F;
+    // 蒙板矩形相对宽度倍数，范围0～1-mask_TL_x
+    float mask_width = 0.5F;
+    // 蒙板矩形相对高度倍数，范围0～1-mask_TL_y
+    float mask_height = 1.0F;
 
-    // GlobalParam(){
-    //     initGlobalParam(BLUE);
-    // }
+    //====HSV二值化参数====//
+    int hmin = 32;  //<! l第一个最小值  84
+    int hmax = 255; //<! l第一个最大值   101
+    int smin = 0;   //<! s最小值   36
+    int smax = 255; //<! s最大值
+    int vmin = 0;   //<! v最小值   46
+    int vmax = 255; //<! v最大值
+    int e_hmin = 0;
+    int e_hmax = 20;
+    int e_smin = 35;
+    int e_smax = 255;
+    int e_vmin = 180;
+    int e_vmax = 255;
+    //====滤波开关====//
+    int switch_gaussian_blur = ON;
+
+    //====UI开关====//
+    int switch_UI_contours = ON;
+    int switch_UI_areas = ON;
+    int switch_UI = ON;
+
+    //====识别参数====//
+    int s_R_min = 0;          //<! R最小面积
+    int s_R_max = 900;        //<! R最大面积，值可能为750    原20
+    float R_ratio_min = 0.7F; //<! R最小长宽比(长/宽)
+    float R_ratio_max = 1.5F; //<! R最大长宽比(长/宽)
+    float s_R_ratio_min = 0.5F; //<! R最小面积比(轮廓面积/最小外包矩形面积)
+    float s_R_ratio_max = 1.0F; //<! R最大面积比(轮廓面积/最小外包矩形面积)
+    float R_circularity_min = 0.6;  //<! R最小圆度
+    float R_circularity_max = 0.75; //<! R最大圆度
+    float R_compactness_min = 15;   //<! R最小紧致度
+    float R_compactness_max = 25;   //<! R最大紧致度
+    int R = 700;                    //<! 能量机关半径 mm
+    float length = 0.68F;           //<! 能量机关实际宽度
+    float H_0 = 1.07F; //<! 相机系原点与世界系原点之间的垂直距离
+    float hit_dx = 6.50F;         //<! 打击点距能量机关R水平距离
+    float constant_speed = 60.0F; //<! 匀速转动角速度（小符）
+    int direction = 1;            //<! 是否逆时针转动 1是-1不是
+    float init_k_ = 0.02F;        //<! 空气摩擦系数
+    double d_Radius = 0.7;        // R中心到圆中心之间的距离
+    double d_RP2 = 0.825;  // R中心点到符半径最远点之间的距离
+    double d_P1P3 = 0.254; // 圆半径
+    //===速度函数参数===//
+    float A = 0.912F; //<! A
+    float w = 1.942F; //<! w
+    float fai = 0.0F; //<! fai
+    //===膨胀操作参数===//
+    float dialte1 = 5.0F; //<! 第一次膨胀的参数
+    float dialte2 = 5.0F; //<! 第二次膨胀的参数
+    float dialte3 = 5.0F; //<! 第三次膨胀的参数
+    //===预测偏置参数===//
+    // float re_time = 0.21F; //<! 0.06~0.1约等于半个装甲板
+    // float thb = 60.0F;     //<! 二值化下阈值
+    // float tht = 108.0F;    //<! 二值化上阈值
+    //===预测部分===//
+    float delta_t = 0.3F;
+    int gap = 0;
+    int gap_control = 1;
+    float min_bullet_v = 16;
+    
+    //===R感兴趣区域===//
+    float R_roi_xl = 0.28F;  //<! 左边界倍率
+    float R_roi_yt = 0.65F;  //<! 上边界倍率
+    float R_roi_xr = 0.415F; //<! 右边界倍率
+    float R_roi_yb = 0.37F;  //<! 下边界倍率
+    cv::Mat camera_matrix;
+    cv::Mat dist_coeffs;
+    int list_size = 300; //<! 时间、速度、角速度队列的大小
 
     void initGlobalParam(const int color);
     void saveGlobalParam();

@@ -25,8 +25,9 @@ public:
     void track(std::vector<Armor> &armors_curr, Translator &ts, double dt);
     void draw(const std::vector<Armor> armors_curr = std::vector<Armor>());
     void calc_armor_back(std::vector<Armor> &armors, Translator &ts);
-private:
+    void kill();
 
+private:
     GlobalParam *gp;
     double dt;
     double r_xy_correction[4];

@@ -161,6 +161,15 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
     }
 }
 
+void Tracker::kill(){
+    if (ekf_list.size() <= index) return;
+    ekf_list.erase(ekf_list.begin() + index);
+    z_vector_list.erase(z_vector_list.begin() + index);
+    lost_frame_count.erase(lost_frame_count.begin() + index);
+    have_number[number_list[index]] = false;
+    number_list.erase(number_list.begin() + index);
+}
+
 void Tracker::refine_zVector(int ekf_id){
     auto x = ekf_list[ekf_id].get_X();
     double xc = x(0), yc = x(2), z1 = x(4), z2 = x(5), r1 = x(7), r2 = x(8), yaw = x(9);

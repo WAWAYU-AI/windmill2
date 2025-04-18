@@ -125,7 +125,7 @@ void MessageManager::read(Translator &ts, SerialPort &serialPort)
 #endif
         if (len == -1 || len == 0) std::exit(-1); //csy 7_24 new added
         count++;
-       // //std::cout << "wei: " << ts.message.bullet_v << std::endl;
+       // //std::cout << "wei: " << ts.messageWM.bullet_v << std::endl;
         usleep(1000);
     }
     this->message_lock.unlock();

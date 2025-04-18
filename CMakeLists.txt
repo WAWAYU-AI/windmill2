@@ -39,11 +39,12 @@
         camera/include
         params/include
         serialPort/include
-        # windmill/include
+        windmill/include
         ${CERES_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
         ${OpenVINO_INCLUDE_DIRS}
         /usr/local/cuda/include
+        
         # /usr/local/include/apriltag
         # apriltag/include
         )
@@ -55,7 +56,7 @@
     add_subdirectory(camera)
     add_subdirectory(params)
     add_subdirectory(serialPort)
-    # add_subdirectory(windmill)
+    add_subdirectory(windmill)
     add_subdirectory(armor)
     # add_subdirectory(apriltag)
     add_executable(infantry_new main.cpp)
@@ -63,7 +64,7 @@
         params
         camera
         serialPort
-        # windmill
+        windmill
         armor
         # apriltag
         ${CERES_LIBRARIES}

@@ -125,7 +125,7 @@ AimAuto::~AimAuto()
     delete tracker;
 }
 
-int cnt = 0;
+int cnt = 0, err = 0;
 void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
 {
     std::vector<Armor> tar_list;
@@ -228,6 +228,9 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
         if (cnt < gp->max_lost_frame) ts.message.crc = 2;
     }
     else cnt = 0;
+    if (ts.message.crc == 2) err++;
+    else err = 0;
+    if (err > gp->max_lost_frame * 3) tracker->kill();
 #ifdef DEBUGMODE
     if (ts.message.crc){
         cv::Scalar color = ts.message.crc == 1 ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 0, 255);
