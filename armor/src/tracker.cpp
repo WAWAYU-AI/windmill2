@@ -341,6 +341,11 @@ void Tracker::calc_armor_back(std::vector<Armor> &armors, Translator &ts){
     m_yaw << cos(ts.message.yaw), -sin(ts.message.yaw), 0, sin(ts.message.yaw), cos(ts.message.yaw), 0, 0, 0, 1;
     m_pitch << cos(ts.message.pitch), 0, -sin(ts.message.pitch), 0, 1, 0, sin(ts.message.pitch), 0, cos(ts.message.pitch);
     Eigen::MatrixXd r_mat = m_yaw * m_pitch;//旋转矩阵
+# ifdef DRONE
+    Eigen::MatrixXd m_roll(3, 3);//roll旋转矩阵
+    m_roll << 1, 0, 0, 0, cos(ts.message.roll), -sin(ts.message.roll), 0, sin(ts.message.roll), cos(ts.message.roll);
+    r_mat = r_mat * m_roll;
+#endif
     Eigen::Matrix3d rotation;
     rotation << 0, 0, 1,
                 -1, 0, 0,
