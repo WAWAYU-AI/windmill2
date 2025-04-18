@@ -126,6 +126,7 @@ AimAuto::~AimAuto()
 }
 
 int cnt = 0;
+int err = 0;
 void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
 {
     std::vector<Armor> tar_list;
@@ -225,7 +226,14 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
         }
         if (ts.message.crc) cnt ++;
         else cnt = 0;
-        if (cnt < gp->max_lost_frame) ts.message.crc = 2;
+        if (cnt < gp->max_lost_frame){
+            ts.message.crc = 2;
+            err++;
+            if (err > gp->max_lost_frame){
+                ts.message.crc = 0;
+                err = 0;
+            }
+        } 
     }
     else cnt = 0;
 #ifdef DEBUGMODE
@@ -298,10 +306,11 @@ void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armo
     cv::putText(src, "PnpYaw:" + std::to_string(yaw), cv::Point(500, 200), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0, 255, 0), 2);
     // cv::imshow("result", src);
 #endif
+
+#ifdef CAR
     Eigen::MatrixXd m_pitch(3, 3);//pitch旋转矩阵
     Eigen::MatrixXd m_yaw(3, 3);//yaw旋转矩阵
     ts.message.yaw = fmod(ts.message.yaw, 2 * M_PI);
-    // ts.message.yaw += angle_err;
     m_yaw << cos(ts.message.yaw), -sin(ts.message.yaw), 0, sin(ts.message.yaw), cos(ts.message.yaw), 0, 0, 0, 1;
     m_pitch << cos(ts.message.pitch), 0, -sin(ts.message.pitch), 0, 1, 0, sin(ts.message.pitch), 0, cos(ts.message.pitch);
     Eigen::Vector3d temp;
@@ -309,6 +318,20 @@ void AimAuto::pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armo
     tar.yaw = ts.message.yaw + yaw;//装甲板yaw
     Eigen::MatrixXd r_mat = m_yaw * m_pitch;//旋转矩阵
     tar.position = r_mat * temp;
+#else
+    Eigen::MatrixXd m_pitch(3, 3);//pitch旋转矩阵
+    Eigen::MatrixXd m_yaw(3, 3);//yaw旋转矩阵
+    Eigen::MatrixXd m_roll(3, 3);//roll旋转矩阵
+    ts.message.yaw = fmod(ts.message.yaw, 2 * M_PI);
+    m_yaw << cos(ts.message.yaw), -sin(ts.message.yaw), 0, sin(ts.message.yaw), cos(ts.message.yaw), 0, 0, 0, 1;
+    m_pitch << cos(ts.message.pitch), 0, -sin(ts.message.pitch), 0, 1, 0, sin(ts.message.pitch), 0, cos(ts.message.pitch);
+    m_roll << 1, 0, 0, 0, cos(ts.message.roll), -sin(ts.message.roll), 0, sin(ts.message.roll), cos(ts.message.roll);
+    Eigen::Vector3d temp;
+    temp = Eigen::Vector3d(tar.center.z + gp->vector_x, -tar.center.x + gp->vector_y, -tar.center.y + gp->vector_z);
+    tar.yaw = ts.message.yaw + yaw;//装甲板yaw
+    Eigen::MatrixXd r_mat = m_yaw * m_pitch * m_roll;//旋转矩阵
+    tar.position = r_mat * temp;
+#endif
     cv::Mat a(3, 3, CV_64F, r_mat.data());
     cv::Mat b = (cv::Mat_<double>(3, 3) << 0, 0, 1, -1, 0, 0, 0, -1, 0);
     rotation_matrix = a * b * rotation_matrix;
