@@ -24,7 +24,7 @@
     # add_definitions(-DNOPORT)    
     # add_definitions(-DUSETRIGGERMODE)
     # add_definitions(-DTHREADANALYSIS)
-    # add_definitions(-DDRONE)
+    add_definitions(-DDRONE)
     # 使用UI动态调参
     add_definitions(-DDEBUGHIT)
 

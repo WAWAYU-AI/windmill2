@@ -32,7 +32,7 @@ typedef struct
     float pitch;           // 当前车云台的pitch角，单位为弧度制
 #ifdef DRONE
     float roll;            // 当前车云台的roll角，单位为弧度制
-#else
+#endif
     uint8_t status;        // 状态位，/5==0自己为红色，/5==0自己为蓝色，%5==0为自瞄，%5==1为小符，%5==3为大符
     uint8_t armor_flag;    // 目标车编号
     float latency;         // 延迟，单位为毫秒
@@ -49,9 +49,37 @@ typedef struct
     uint16_t crc;
     uint8_t tail; // 0x4C
 
-} MessData;
+} MessData_AutoAim;
 #pragma pack()
-#endif
+
+#pragma pack(1)
+typedef struct {  // 打符结构体
+
+  uint8_t head; // 0x71
+  // 电控发送的信息
+  float yaw;               // 当前车云台的yaw角，单位为弧度制
+  float pitch;             // 当前车云台的pitch角，单位为弧度制
+  uint8_t status;          // 状态位，/5==0自己为红色，/5==0自己为蓝色，%5==0为自瞄，%5==1为小符，%5==3为大符
+  uint16_t bullet_v;       // 上一次发射的弹速，单位为米每秒
+  uint8_t empty0;
+  uint32_t predict_time;   // 预测时间，单位为毫秒
+  float empty1;
+  float empty2;
+  float empty3;
+  float empty4;
+  float empty5;
+  float empty6;
+  float empty7;
+  float empty8;
+  float empty9;
+  float empty10;
+  float send_yaw;   // 目标姿态yaw角，单位为弧度制
+  float send_pitch; // 目标姿态pitch角，单位为弧度制
+  uint16_t crc;
+  uint8_t tail; // 0x4C
+
+} MessData_WM;
+#pragma pack()
 
 typedef union
 {

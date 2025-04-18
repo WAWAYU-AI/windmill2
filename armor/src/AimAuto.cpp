@@ -236,15 +236,14 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
 #ifdef DEBUGMODE
     if (ts.message.crc){
         cv::Scalar color = ts.message.crc == 1 ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 0, 255);
-        cv::putText(src, "armor_flag: " + std::to_string(ts.message.armor_flag), cv::Point(1000, 100), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
-        cv::putText(src, "latency: " + std::to_string(ts.message.latency), cv::Point(1050, 150), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
-        cv::putText(src, "xc: " + std::to_string(ts.message.x_c), cv::Point(1130, 200), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
-        cv::putText(src, "vx: " + std::to_string(ts.message.v_x), cv::Point(1130, 250), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
-        cv::putText(src, "yc: " + std::to_string(ts.message.y_c), cv::Point(1130, 300), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
-        cv::putText(src, "vy: " + std::to_string(ts.message.v_y), cv::Point(1130, 350), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
-        cv::putText(src, "z1: " + std::to_string(ts.message.z1 ), cv::Point(1130, 400), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
-        cv::putText(src, "z2: " + std::to_string(ts.message.z2 ), cv::Point(1130, 450), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
-        cv::putText(src, "vz: " + std::to_string(ts.message.v_z), cv::Point(1130, 500), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "armor_flag: " + std::to_string(ts.message.armor_flag), cv::Point(1000, 150), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "latency: " + std::to_string(ts.message.latency), cv::Point(1050, 200), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "xc: " + std::to_string(ts.message.x_c), cv::Point(1130, 250), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "vx: " + std::to_string(ts.message.v_x), cv::Point(1130, 300), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "yc: " + std::to_string(ts.message.y_c), cv::Point(1130, 350), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "vy: " + std::to_string(ts.message.v_y), cv::Point(1130, 400), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "z1: " + std::to_string(ts.message.z1 ), cv::Point(1130, 450), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(src, "z2: " + std::to_string(ts.message.z2 ), cv::Point(1130, 500), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
         cv::putText(src, "r1: " + std::to_string(ts.message.r1 ), cv::Point(1130, 550), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
         cv::putText(src, "r2: " + std::to_string(ts.message.r2 ), cv::Point(1130, 600), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
         cv::putText(src, "yaw: " + std::to_string(ts.message.yaw_a), cv::Point(1110, 650), cv::FONT_HERSHEY_PLAIN, 2, color, 1);

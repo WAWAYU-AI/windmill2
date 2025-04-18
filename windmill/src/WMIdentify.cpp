@@ -216,7 +216,6 @@ void WMIdentify::identifyWM(cv::Mat &input_img, Translator &translator) {
 
     // LOG_IF(INFO, this->switch_INFO) << "blade.apex.size() :" <<
     // blade.apex.size();
-    translator.message.v_z = 11.0;
     this->R_center = blade.apex[0];
     if (firstFrame) {
       image_points.clear();
@@ -490,7 +489,7 @@ void WMIdentify::identifyWM(cv::Mat &input_img, Translator &translator) {
     // 如果已经解算过（有固定世界系了）
     // 那么收集角度
   } else {
-    translator.message.v_z = 10.0;
+    // translator.message.v_z = 10.0;
     std::cout << "识别失败，不预测" << std::endl;
   }
 }

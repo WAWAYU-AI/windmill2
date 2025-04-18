@@ -139,7 +139,6 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
         ts.message.v_y = x(3);
         ts.message.z1 = x(4);
         ts.message.z2 = x(5);
-        ts.message.v_z = x(6);
         ts.message.r1 = x(7);
         ts.message.r2 = x(8);
         ts.message.yaw_a = x(9);
@@ -152,7 +151,6 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
         ts.message.v_y = 0;
         ts.message.z1 = 0;
         ts.message.z2 = 0;
-        ts.message.v_z = 0;
         ts.message.r1 = 0;
         ts.message.r2 = 0;
         ts.message.yaw_a = 0;
