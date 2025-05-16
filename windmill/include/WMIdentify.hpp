@@ -52,19 +52,19 @@ private:
   int list_stat = 0;
   bool pnp_solved = false; // 标记是否已经求解pnp
   bool firstFrame = true;
-  bool ready_to_update = false;          // 标记是否可以更新
-  cv::Mat camera_matrix;                 // 相机内参矩阵
-  cv::Mat dist_coeffs;                   // 畸变系数
-  cv::Mat rvec;                          // 旋转向量
-  cv::Mat tvec;                          // 平移向量
-  cv::Mat rotation_matrix;               // 旋转矩阵
-  cv::Mat first_rvec;                    // 第一帧旋转向量
-  cv::Mat first_tvec;                    // 第一帧平移向量
-  cv::Mat first_rotation_matrix;         // 第一帧旋转矩阵
-  cv::Mat rvec_for_predict;              // 旋转向量
-  cv::Mat tvec_for_predict;              // 平移向量
-  cv::Mat rotation_matrix_for_predict;   // 旋转矩阵
-  cv::Mat world2car;             // 世界系到车身系的变换矩阵(4*4)
+  bool ready_to_update = false;        // 标记是否可以更新
+  cv::Mat camera_matrix;               // 相机内参矩阵
+  cv::Mat dist_coeffs;                 // 畸变系数
+  cv::Mat rvec;                        // 旋转向量
+  cv::Mat tvec;                        // 平移向量
+  cv::Mat rotation_matrix;             // 旋转矩阵
+  cv::Mat first_rvec;                  // 第一帧旋转向量
+  cv::Mat first_tvec;                  // 第一帧平移向量
+  cv::Mat first_rotation_matrix;       // 第一帧旋转矩阵
+  cv::Mat rvec_for_predict;            // 旋转向量
+  cv::Mat tvec_for_predict;            // 平移向量
+  cv::Mat rotation_matrix_for_predict; // 旋转矩阵
+  cv::Mat world2car; // 世界系到车身系的变换矩阵(4*4)
   std::vector<cv::Point3f> world_points; // 世界坐标系中的点
   std::vector<cv::Point2f> image_points; // 图像坐标系中的点
   double phi; // 相机系原点与世界系原点连线相对于视线偏移的水平角度

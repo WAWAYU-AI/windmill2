@@ -18,13 +18,13 @@
     add_definitions(-DSHOW_FPS)
     # add_definitions(-DDEBUGREFINE)
     add_definitions(-DDEBUGMODE)
-    # add_definitions(-DDEBUGCOLOR)
+    add_definitions(-DDEBUGCOLOR)
     # add_definitions(-DDEBUGNUM)
     # add_definitions(-DVIRTUALGRAB)  # 打开虚拟取流 即用视频跑
     # add_definitions(-DNOPORT)    
     # add_definitions(-DUSETRIGGERMODE)
     # add_definitions(-DTHREADANALYSIS)
-    add_definitions(-DDRONE)
+    # add_definitions(-DDRONE)
     # 使用UI动态调参
     add_definitions(-DDEBUGHIT)
 

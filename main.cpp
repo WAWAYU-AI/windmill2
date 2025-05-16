@@ -121,7 +121,7 @@ void *OperationFunction(void *arg)
     AimAuto aim(&gp);
     UIManager UI(gp);
     WMI.clear();
-    WMPredict WMIPRE;
+    WMPredict WMIPRE(gp);
     double dt = 0;
     double last_time_stamp = 0;
 #ifndef VIRTUALGRAB
@@ -217,6 +217,7 @@ void *OperationFunction(void *arg)
             empty_frame_count = 0;
         }
         // 自瞄模式
+        
         if (translator.message.status % 5 == 0)
         {
             double time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();

@@ -355,53 +355,40 @@ struct GlobalParam
     int switch_UI_areas = ON;
     int switch_UI = ON;
 
-    //====识别参数====//
-    int s_R_min = 0;          //<! R最小面积
-    int s_R_max = 900;        //<! R最大面积，值可能为750    原20
-    float R_ratio_min = 0.7F; //<! R最小长宽比(长/宽)
-    float R_ratio_max = 1.5F; //<! R最大长宽比(长/宽)
-    float s_R_ratio_min = 0.5F; //<! R最小面积比(轮廓面积/最小外包矩形面积)
-    float s_R_ratio_max = 1.0F; //<! R最大面积比(轮廓面积/最小外包矩形面积)
-    float R_circularity_min = 0.6;  //<! R最小圆度
-    float R_circularity_max = 0.75; //<! R最大圆度
-    float R_compactness_min = 15;   //<! R最小紧致度
-    float R_compactness_max = 25;   //<! R最大紧致度
-    int R = 700;                    //<! 能量机关半径 mm
-    float length = 0.68F;           //<! 能量机关实际宽度
-    float H_0 = 1.07F; //<! 相机系原点与世界系原点之间的垂直距离
-    float hit_dx = 6.50F;         //<! 打击点距能量机关R水平距离
-    float constant_speed = 60.0F; //<! 匀速转动角速度（小符）
-    int direction = 1;            //<! 是否逆时针转动 1是-1不是
-    float init_k_ = 0.02F;        //<! 空气摩擦系数
-    double d_Radius = 0.7;        // R中心到圆中心之间的距离
-    double d_RP2 = 0.825;  // R中心点到符半径最远点之间的距离
-    double d_P1P3 = 0.254; // 圆半径
-    //===速度函数参数===//
-    float A = 0.912F; //<! A
-    float w = 1.942F; //<! w
-    float fai = 0.0F; //<! fai
-    //===膨胀操作参数===//
-    float dialte1 = 5.0F; //<! 第一次膨胀的参数
-    float dialte2 = 5.0F; //<! 第二次膨胀的参数
-    float dialte3 = 5.0F; //<! 第三次膨胀的参数
-    //===预测偏置参数===//
-    // float re_time = 0.21F; //<! 0.06~0.1约等于半个装甲板
-    // float thb = 60.0F;     //<! 二值化下阈值
-    // float tht = 108.0F;    //<! 二值化上阈值
-    //===预测部分===//
-    float delta_t = 0.3F;
-    int gap = 0;
-    int gap_control = 1;
-    float min_bullet_v = 16;
-    
-    //===R感兴趣区域===//
-    float R_roi_xl = 0.28F;  //<! 左边界倍率
-    float R_roi_yt = 0.65F;  //<! 上边界倍率
-    float R_roi_xr = 0.415F; //<! 右边界倍率
-    float R_roi_yb = 0.37F;  //<! 下边界倍率
-    cv::Mat camera_matrix;
-    cv::Mat dist_coeffs;
-    int list_size = 300; //<! 时间、速度、角速度队列的大小
+    //===============打符识别部分==============//
+
+  int circularityThreshold = 45;
+  int medianBlurSize = 3;
+  int debug = 0;
+  int dilationSize = 7;
+  int erosionSize = 3;
+  int thresholdValue = 108;
+  int thresholdValue_for_roi = 80;
+  int rect_area_threshold = 2000;
+  int circle_area_threshold = 50;
+
+  int target_circle_area_min = 8000;
+  int target_circle_area_max = 20000;
+  int R_area_min = 800;
+  int R_area_max = 2200;
+
+  int length_width_ratio_threshold = 3;
+  int minContourArea = 200;
+
+  //===============打符Identify==============//
+  int list_size = 280;
+  double d_Radius = 100;
+  double d_P1P3 = 100;
+  double d_RP2 = 100;
+
+  int gap = 0;
+  int gap_control = 1;
+
+  double tx_cam2cloud = 0;
+  double ty_cam2cloud = 0;
+  double tz_cam2cloud = 0;
+
+  double delta_t = 0.10;
 
     void initGlobalParam(const int color);
     void saveGlobalParam();

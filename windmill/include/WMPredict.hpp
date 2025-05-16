@@ -20,15 +20,15 @@ private:
   double f2t(double P, double fly_t, double theta_0, double v0);
 
   double f1A(double P0, double delta_theta_delay, const cv::Mat &world2car,
-    double fly_t0, double distance, double v0);
+             double fly_t0, double distance, double v0);
   double f2A(double P0, double delta_theta_delay, const cv::Mat &world2car,
-      double fly_t0, double v0);
+             double fly_t0, double v0);
   double f1PA(double P, double x, double fly_t, double distance, double v0);
   double f1tA(double P0, double delta_theta_delay, const cv::Mat &world2car,
-      double fly_t0, double distance, double v0);
+              double fly_t0, double distance, double v0);
   double f2PA(double P, double z, double fly_t, double v0);
   double f2tA(double P0, double delta_theta_delay, const cv::Mat &world2car,
-      double fly_t0, double v0);
+              double fly_t0, double v0);
 
   // 求解大符方程
   double F1(double P0, double fly_t0, double theta_0, double v0);
@@ -68,6 +68,7 @@ private:
   double Radius; // 能量机关半径，修正角度用
   double Fire_time;
   double First_fit; // 是否为初次拟合1，0
+  int clockwise;    // 1顺时针，0逆时针,初始化为-1,表示未确定
   //====大符速度参数======//
   double A0;
   double w_big;
@@ -85,12 +86,27 @@ private:
   double resultPitch;
   std::ofstream log_file; // 添加日志文件流
 
+  double delta_t;
+
+  // 时间统计相关变量
+  std::chrono::high_resolution_clock::time_point convex_start_time;
+  std::chrono::high_resolution_clock::time_point newton_start_time;
+  double convex_total_time = 0.0; // 累计时间(ms)
+  double newton_total_time = 0.0; // 累计时间(ms)
+  int convex_frame_count = 0;     // 帧计数
+  int newton_frame_count = 0;     // 帧计数
+  bool is_convex_running = false; // 是否正在运行
+  bool is_newton_running = false; // 是否正在运行
+
+  // 在debugImg上显示统计信息
+  void ShowTimeStatistics();
+
 public:
-  WMPredict();
+  WMPredict(GlobalParam &gp);
   int StartPredict(Translator &translator, GlobalParam &gp, WMIdentify &WMI);
 
   void thetaAmend(double &theta);
-  int BulletSpeedProcess(Translator &translator, GlobalParam &gp);
+  int BulletSpeedProcess(Translator &translator);
   void UpdateData(WMIdentify &WMI, Translator translator);
   int Fit(std::deque<double> time_list, std::deque<double> angle_velocity_list,
           GlobalParam &gp, Translator &tr);
@@ -111,6 +127,13 @@ public:
   void ResultLog(Translator &translator, GlobalParam &gp, double R_yaw);
   void GiveDebugImg(cv::Mat debugImg);
   cv::Mat GetDebugImg();
+  void ResetTimeStatistics(); // 重置时间统计
+
+  // 获取时间统计信息
+  double GetConvexTotalTime() const { return convex_total_time; }
+  double GetNewtonTotalTime() const { return newton_total_time; }
+  int GetConvexFrameCount() const { return convex_frame_count; }
+  int GetNewtonFrameCount() const { return newton_frame_count; }
 };
 
 #endif // _PREDICT_HPP

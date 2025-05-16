@@ -90,64 +90,41 @@ void GlobalParam::initGlobalParam(const int color)
     fs["grad_min"] >> grad_min;
     fs.release();
 
-    if(!fs.open("../config/WindmillConfig.yaml", cv::FileStorage::READ)){
+    if (!fs.open("../config/WindmillConfig.yaml", cv::FileStorage::READ)) {
         printf("WindmillConfig.yaml not found!\n");
         exit(1);
-    }
-    fs["mask_TL_x"] >> mask_TL_x;
-    fs["mask_TL_y"] >> mask_TL_y;
-    fs["mask_width"] >> mask_width;
-    fs["mask_height"] >> mask_height;
-    fs["hmin"] >> hmin;
-    fs["hmax"] >> hmax;
-    fs["smin"] >> smin;
-    fs["smax"] >> smax;
-    fs["vmin"] >> vmin;
-    fs["vmax"] >> vmax;
-    fs["e_hmin"] >> e_hmin;
-    fs["e_hmax"] >> e_hmax;
-    fs["e_smin"] >> e_smin;
-    fs["e_smax"] >> e_smax;
-    fs["e_vmin"] >> e_vmin;
-    fs["e_vmax"] >> e_vmax;
-    fs["switch_gaussian_blur"] >> switch_gaussian_blur;
-    fs["switch_UI_contours"] >> switch_UI_contours;
-    fs["switch_UI_areas"] >> switch_UI_areas;
-    fs["switch_UI"] >> switch_UI;
-    fs["s_R_min"] >> s_R_min;
-    fs["s_R_max"] >> s_R_max;
-    fs["R_ratio_min"] >> R_ratio_min;
-    fs["R_ratio_max"] >> R_ratio_max;
-    fs["s_R_ratio_min"] >> s_R_ratio_min;
-    fs["s_R_ratio_max"] >> s_R_ratio_max;
-    fs["R_circularity_min"] >> R_circularity_min;
-    fs["R_circularity_max"] >> R_circularity_max;
-    fs["R_compactness_min"] >> R_compactness_min;
-    fs["R_compactness_max"] >> R_compactness_max;
-    fs["R"] >> R;
-    fs["length"] >> length;
-    fs["H_0"] >> H_0;
-    fs["hit_dx"] >> hit_dx;
-    fs["constant_speed"] >> constant_speed;
-    fs["direction"] >> direction;
-    fs["init_k_"] >> init_k_;
-    fs["d_Radius"] >> d_Radius;
-    fs["d_RP2"] >> d_RP2;
-    fs["d_P1P3"] >> d_P1P3;
-    fs["A"] >> A;
-    fs["w"] >> w;
-    fs["fai"] >> fai;
-    fs["dialte1"] >> dialte1;
-    fs["dialte2"] >> dialte2;
-    fs["dialte3"] >> dialte3;
-    fs["R_roi_xl"] >> R_roi_xl;
-    fs["R_roi_yt"] >> R_roi_yt;
-    fs["R_roi_xr"] >> R_roi_xr;
-    fs["R_roi_yb"] >> R_roi_yb;
-    fs["list_size"] >> list_size;
-    camera_matrix = (cv::Mat_<double>(3, 3) << fx, 0, cx, 0, fy, cy, 0, 0, 1); // 相机内参
-    dist_coeffs = (cv::Mat_<double>(1, 5) << k1, k2, p1, p2, k3); // 畸变系数
-    fs.release();
+      }
+      fs["circularityThreshold"] >> circularityThreshold;
+      fs["medianBlurSize"] >> medianBlurSize;
+      fs["debug"] >> debug;
+      fs["dilationSize"] >> dilationSize;
+      fs["erosionSize"] >> erosionSize;
+      fs["thresholdValue"] >> thresholdValue;
+      fs["thresholdValue_for_roi"] >> thresholdValue_for_roi;
+      fs["rect_area_threshold"] >> rect_area_threshold;
+      fs["circle_area_threshold"] >> circle_area_threshold;
+      fs["length_width_ratio_threshold"] >> length_width_ratio_threshold;
+      fs["minContourArea"] >> minContourArea;
+      fs["target_circle_area_min"] >> target_circle_area_min;
+      fs["target_circle_area_max"] >> target_circle_area_max;
+      fs["R_area_min"] >> R_area_min;
+      fs["R_area_max"] >> R_area_max;
+    
+      fs["list_size"] >> list_size;
+      fs["d_Radius"] >> d_Radius;
+      fs["d_P1P3"] >> d_P1P3;
+      fs["d_RP2"] >> d_RP2;
+    
+      fs["gap"] >> gap;
+      fs["gap_control"] >> gap_control;
+    
+      fs["tx_cam2cloud"] >> tx_cam2cloud;
+      fs["ty_cam2cloud"] >> ty_cam2cloud;
+      fs["tz_cam2cloud"] >> tz_cam2cloud;
+    
+      fs["delta_t"] >> delta_t;
+    
+      fs.release();
     
     // LOG_IF(INFO, switch_INFO) << "initGlobalParam Successful";
 }
@@ -235,6 +212,41 @@ void GlobalParam::saveGlobalParam()
     fs << "grad_max" << grad_max;
     fs << "grad_min" << grad_min;
     fs.release();
+
+    if (!fs.open("../config/WindmillConfig.yaml", cv::FileStorage::READ)) {
+        printf("WindmillConfig.yaml not found!\n");
+        exit(1);
+      }
+      fs << "circularityThreshold" << circularityThreshold;
+      fs << "medianBlurSize" << medianBlurSize;
+      fs << "dilationSize" << dilationSize;
+      fs << "erosionSize" << erosionSize;
+      fs << "thresholdValue" << thresholdValue;
+      fs << "thresholdValue_for_roi" << thresholdValue_for_roi;
+      fs << "rect_area_threshold" << rect_area_threshold;
+      fs << "circle_area_threshold" << circle_area_threshold;
+      fs << "length_width_ratio_threshold" << length_width_ratio_threshold;
+      fs << "minContourArea" << minContourArea;
+      fs << "target_circle_area_min" << target_circle_area_min;
+      fs << "target_circle_area_max" << target_circle_area_max;
+      fs << "R_area_min" << R_area_min;
+      fs << "R_area_max" << R_area_max;
+    
+      fs << "list_size" << list_size;
+      fs << "d_Radius" << d_Radius;
+      fs << "d_P1P3" << d_P1P3;
+      fs << "d_RP2" << d_RP2;
+    
+      fs << "gap" << gap;
+      fs << "gap_control" << gap_control;
+    
+      fs << "tx_cam2cloud" << tx_cam2cloud;
+      fs << "ty_cam2cloud" << ty_cam2cloud;
+      fs << "tz_cam2cloud" << tz_cam2cloud;
+    
+      fs << "delta_t" << delta_t;
+      fs.release();
+    
 
     // LOG_IF(INFO, switch_INFO) << "saveGlobalParam Successful";
 }
