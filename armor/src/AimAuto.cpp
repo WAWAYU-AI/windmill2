@@ -233,6 +233,9 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
     if (ts.message.crc == 2) err++;
     else err = 0;
     if (err > gp->max_lost_frame * 3) tracker->kill();
+
+    ts.message.vyaw = vyaw_filter.filter(ts.message.vyaw, dt);
+
 #ifdef DEBUGMODE
     if (ts.message.crc){
         cv::Scalar color = ts.message.crc == 1 ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 0, 255);

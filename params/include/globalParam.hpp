@@ -363,6 +363,7 @@ struct GlobalParam
   int dilationSize = 7;
   int erosionSize = 3;
   int thresholdValue = 108;
+  int thresholdValueBlue = 160;
   int thresholdValue_for_roi = 80;
   int rect_area_threshold = 2000;
   int circle_area_threshold = 50;

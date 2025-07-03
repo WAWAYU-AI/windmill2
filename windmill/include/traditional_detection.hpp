@@ -20,10 +20,10 @@ struct KeyPoints {
   std::vector<cv::Point2f> rectCenters;
   std::vector<cv::Point> circlePoints;
   // 定义面积范围常量
-  static constexpr double min_low = 100.0;
-  static constexpr double min_high = 2800.0;
-  static constexpr double max_low = 3000.0;
-  static constexpr double max_high = 33000.0;
+  static constexpr double min_low = 150.0;
+  static constexpr double min_high = 1800.0;
+  static constexpr double max_low = 2500.0;
+  static constexpr double max_high = 15000.0;
 
   bool isValid() const {
     // 检查基本条件

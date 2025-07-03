@@ -2,14 +2,14 @@
 ---
 cam_index: 0
 enable_auto_exp: 0
-energy_exp_time: 2000.
-blue_exp_time: 200.
-red_exp_time: 200.
+energy_exp_time: 950.
+blue_exp_time: 800.
+red_exp_time: 300.
 r_balance: 3600
 g_balance: 1024
 b_balance: 1957
 enable_auto_gain: 0
-gain: 16.9
+gain: 1.6899999618530273e+01
 gamma_value: 6.9999998807907104e-01
 trigger_activation: 0
 frame_rate: 180.

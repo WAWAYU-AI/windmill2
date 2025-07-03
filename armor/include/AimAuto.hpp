@@ -17,6 +17,7 @@
 #include <opencv2/video/video.hpp>
 #include <opencv2/core/eigen.hpp>
 #include <vector>
+#include<filter.hpp>
 
 #ifdef APRILTAG
 #include "ApriltagDetector.hpp"
@@ -31,6 +32,9 @@ private:
     Armor last_armor;
     void pnp_solve(UnsolvedArmor &armor, Translator &ts, cv::Mat &src, Armor &tar, int number);
     void draw_armor_back(cv::Mat &src, Armor &armor, int number, cv::Scalar color = cv::Scalar(255, 255, 255));
+    Filter vx_filter;
+    Filter vy_filter;
+    Filter vyaw_filter;
     void optimizeYawZ(
         const std::vector<cv::Point3f>& objPoints,
         const std ::vector<cv::Point2f>& imgPoints,

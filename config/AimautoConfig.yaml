@@ -2,10 +2,10 @@
 ---
 cost_threshold: 1800.
 max_lost_frame: 15.
-s2qxyz: 500.
-s2qyaw: 2.0000000000000001e-04
+s2qxyz: 450.
+s2qyaw: 2.0000000000000000e-03
 s2qr: 300.
-r_xy_factor: 4.0000000000000003e-05
+r_xy_factor: 3.0000000000000004e-05
 r_z: 1.0000000000000000e-03
 r_yaw: 5.
 s2p0xyr: 1000.

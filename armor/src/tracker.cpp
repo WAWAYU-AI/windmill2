@@ -125,6 +125,7 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
             auto x = ekf_list[i].get_X();
             float dangle = atan2(x(2),x(0)) - ts.message.yaw;
             dangle = abs(atan2(sin(dangle),cos(dangle)));
+            if (ts.message.status %5 == 2 && number_list[i] == 1) dangle = 0;
             if(dangle < min_dangle){
                 min_dangle = dangle;
                 index = i;

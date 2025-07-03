@@ -190,6 +190,7 @@
    this->angle_velocity_list.emplace_back(
        0); // 先填充一个0，方便之后UpdateList中的数据对齐
    // 输出日志，清空成
+   this->list_stat = 1;
    // //LOG_IF(INFO, this->switch_INFO) << "clear Successful";
  }
  
@@ -311,13 +312,16 @@
      cv::putText(result.processedImage, "R_z : " + std::to_string(R_car.z),
                  cv::Point(800, 600), cv::FONT_HERSHEY_SIMPLEX, 2,
                  cv::Scalar(0, 255, 0), 2);
+                 cv::putText(result.processedImage, "R_z : " + std::to_string(std::sqrt(R_car.z*R_car.z + R_car.x*R_car.x)),
+                 cv::Point(800, 700), cv::FONT_HERSHEY_SIMPLEX, 2,
+                 cv::Scalar(0, 255, 0), 2);
      this->distance = sqrt(R_world_coordinate_car.at<double>(0, 0) *
                                R_world_coordinate_car.at<double>(0, 0) +
                            R_world_coordinate_car.at<double>(1, 0) *
                                R_world_coordinate_car.at<double>(1, 0) +
                            R_world_coordinate_car.at<double>(2, 0) *
                                R_world_coordinate_car.at<double>(2, 0));
-     if (this->distance < 4 || this->distance > 8) {
+     if (this->distance < 4 || this->distance >12){
        translator.message.armor_flag = 10;
        std::cout << "distance wrong!" << std::endl;
        return;

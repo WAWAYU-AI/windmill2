@@ -16,9 +16,6 @@
 #include "number_classifier.hpp"
 #include "globalParam.hpp"
 
-#ifdef APRILTAG
-#include "ApriltagDetector.hpp"
-#endif
 class Detector{    
     public:
         struct LightParams
@@ -60,27 +57,16 @@ class Detector{
         int blue_threshold, red_threshold;
         int binary_thres;
         int detect_color;
+        double color_diff_threshold = 20; // Color difference threshold for light detection
         LightParams l;
         ArmorParams a;
         std::unique_ptr<NumberClassifier> classifier;
-#ifdef APRILTAG
-        std::vector<Armor> tag_list;
-#endif
-
         // Debug msgs
         cv::Mat binary_img;
-
     private:
         GlobalParam *gp;
-#ifdef APRILTAG
-        ApriltagDetector *apriltagDetector;
-        void find_apriltag(cv::Mat &src, std::vector<UnsolvedArmor> &armors);
-        std::vector<std::vector<cv::Point2d> > tags;
-        std::vector<int> ids;
-#endif
         bool isLight(const Light &possible_light);
-        bool containLight(
-            const Light &light_1, const Light &light_2, const std::vector<Light> &lights);
+        bool containLight(const int i, const int j, const std::vector<Light> &lights) noexcept;
         ArmorType isArmor(const Light &light_1, const Light &light_2);
 
         std::vector<Light> lights_;

@@ -94,9 +94,9 @@ void *ReadFunction(void *arg) // 读线程
         MManager.read(temp, *serialPort);
         usleep(100);
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
-        MManager.ReadLogMessage(temp, gp);
+        // MManager.ReadLogMessage(temp, gp);
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-        printf("read   duration: %ld ms\n", duration);
+        // printf("read   duration: %ld ms\n", duration);
     }
     return NULL;
 }
@@ -124,6 +124,7 @@ void *OperationFunction(void *arg)
     WMPredict WMIPRE(gp);
     double dt = 0;
     double last_time_stamp = 0;
+    // i
 #ifndef VIRTUALGRAB
     camera.init();
 #endif 
@@ -169,7 +170,7 @@ void *OperationFunction(void *arg)
 #else
         MManager.FakeMessage(translator); 
 #endif       
-        if (translator.message.status % 5 != 0)
+        if (translator.message.status % 5 != 0 && translator.message.status % 5 != 2)
         {
 #ifndef VIRTUALGRAB
             camera.change_attack_mode(ENERGY, gp);
@@ -194,8 +195,9 @@ void *OperationFunction(void *arg)
 #ifndef VIRTUALGRAB
 
 #ifdef DEBUGMODE
-        camera.set_param_mult(gp);
+        
 #endif
+        camera.set_param_mult(gp);
         camera.get_pic(&pic, gp);
 #else
         MManager.getFrame(pic, translator);
@@ -217,16 +219,18 @@ void *OperationFunction(void *arg)
             empty_frame_count = 0;
         }
         // 自瞄模式
-        
-        if (translator.message.status % 5 == 0)
+        if (translator.message.status == 99)
+            abort();
+        if (translator.message.status % 5 == 0 || translator.message.status % 5 == 2)
         {
+            WMI.clear();
             double time_stamp = std::chrono::duration<double>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
             dt = time_stamp - last_time_stamp;
             translator.message.latency = (time_stamp - last_time_stamp) * 1000;
             last_time_stamp = time_stamp;
             aim.auto_aim(pic, translator, dt);
             MManager.write(translator, *serialPort);
-            MManager.WriteLogMessage(translator, gp);
+            // MManager.WriteLogMessage(translator, gp);
 // #ifdef DEBUGMODE
 #ifdef SHOW_FPS
             cv::putText(pic,"FPS: " + to_string(fps), cv::Point(1000, 50), cv::FONT_HERSHEY_SIMPLEX, 1.5, cv::Scalar(255, 255, 255), 2);
@@ -237,8 +241,6 @@ void *OperationFunction(void *arg)
             WMIPRE.StartPredict(translator, gp, WMI);
             MManager.write(translator, *serialPort);
         }
-        if (translator.message.status == 99)
-            exit(0);
 
 #ifdef DEBUGMODE
         UI.receive_pic(pic);
@@ -266,7 +268,9 @@ void *OperationFunction(void *arg)
 #endif
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-        printf("option duration: %ld ms\n", duration);
+        // printf("%ld\n", duration);
+        if(duration > 300) abort();
+        // printf("option duration: %ld ms\n", duration);
     }
     return NULL;
 }

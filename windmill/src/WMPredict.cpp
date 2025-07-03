@@ -184,6 +184,7 @@ int WMPredict::StartPredict(Translator &translator, GlobalParam &gp,
     // WMI.getR_yaw()); // 备用或旧方法
     this->NewtonDspBigAnyPos(WMI.getTransformationMatrix(), translator, gp,
                              WMI.getLastAngle(), WMI.getLastRotAngle());
+                             translator.message.armor_flag = 11;
     // this->NewtonDspSmallAnyPos(WMI.getTransformationMatrix(), translator, gp,
     // WMI.getLastAngle()); // 备用或旧方法
   } else {
@@ -197,11 +198,12 @@ int WMPredict::StartPredict(Translator &translator, GlobalParam &gp,
       // 调用 NewtonDspBigAnyPos 进行小符弹道预测和姿态解算
       this->NewtonDspBigAnyPos(WMI.getTransformationMatrix(), translator, gp,
                                WMI.getLastAngle(), WMI.getLastRotAngle());
+                               translator.message.armor_flag = 11;
     } else {
       std::cout << "小符方向未确定，不预测" << std::endl;
     }
   }
-  translator.message.armor_flag = 11;
+  
   return 1;
 }
 /**
@@ -1125,7 +1127,7 @@ double WMPredict::f2A(double P0, double delta_theta_delay,
       (cv::Mat_<double>(4, 1) << r * cos(delta_theta_delay + w * fly_t0),
        -r * sin(delta_theta_delay + w * fly_t0), 0, 1.0);
   cv::Mat world_point_car = world2car * world_point;
-  return -world_point_car.at<double>(1, 0) - 1.4 -
+  return -world_point_car.at<double>(1, 0) -
          (k * v0 * sin(P0) + g -
           (k * v0 * sin(P0) + g) * pow(Exp, -k * fly_t0) - g * k * fly_t0) /
              (k * k);
@@ -1201,7 +1203,7 @@ double WMPredict::F2A(double P0, double delta_theta_delay,
        0, 1.0);
   cv::Mat world_point_car = world2car * world_point;
 
-  return -world_point_car.at<double>(1, 0) - 1.4 -
+  return -world_point_car.at<double>(1, 0) -
          (k * v0 * sin(P0) + g -
           (k * v0 * sin(P0) + g) * pow(Exp, -k * fly_t0) - g * k * fly_t0) /
              (k * k);

@@ -100,6 +100,7 @@ void GlobalParam::initGlobalParam(const int color)
       fs["dilationSize"] >> dilationSize;
       fs["erosionSize"] >> erosionSize;
       fs["thresholdValue"] >> thresholdValue;
+      fs["thresholdValueBlue"] >> thresholdValueBlue;
       fs["thresholdValue_for_roi"] >> thresholdValue_for_roi;
       fs["rect_area_threshold"] >> rect_area_threshold;
       fs["circle_area_threshold"] >> circle_area_threshold;
@@ -222,6 +223,7 @@ void GlobalParam::saveGlobalParam()
       fs << "dilationSize" << dilationSize;
       fs << "erosionSize" << erosionSize;
       fs << "thresholdValue" << thresholdValue;
+      fs << "thresholdValueBlue" << thresholdValueBlue;
       fs << "thresholdValue_for_roi" << thresholdValue_for_roi;
       fs << "rect_area_threshold" << rect_area_threshold;
       fs << "circle_area_threshold" << circle_area_threshold;

@@ -116,6 +116,8 @@ void NumberClassifier::classify(std::vector<UnsolvedArmor> &armors)
     for (auto &armor : armors)
     {
         cv::Mat image = armor.number_img.clone();
+        const cv::Size input_size(28, 28);
+        cv::resize(image, image, input_size);
 #ifdef DEBUGNUM
         cv::Mat temp;
         cv::resize(image, temp, cv::Size(400, 400));
@@ -171,6 +173,7 @@ void NumberClassifier::classify(std::vector<UnsolvedArmor> &armors)
             [this](const UnsolvedArmor &armor)
             {
                 if (armor.isApriltag) return false;
+                // if (armor.number == "outpost") return true;
                 if (armor.confidence < threshold)
                 {
                     return true;
