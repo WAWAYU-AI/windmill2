@@ -1,5 +1,5 @@
 #!/bin/bash
-cd ~/DX_aimbot
+cd ~/DX_aimbot_test
 rm -rf ./build
 mkdir build
 cd build

@@ -234,7 +234,7 @@ void AimAuto::auto_aim(cv::Mat &src, Translator &ts, double dt)
     else err = 0;
     if (err > gp->max_lost_frame * 3) tracker->kill();
 
-    ts.message.vyaw = vyaw_filter.filter(ts.message.vyaw, dt);
+    // ts.message.vyaw = vyaw_filter.filter(ts.message.vyaw, dt);
 
 #ifdef DEBUGMODE
     if (ts.message.crc){

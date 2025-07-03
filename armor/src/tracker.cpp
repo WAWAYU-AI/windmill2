@@ -96,6 +96,7 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
                 lost_frame_count.erase(lost_frame_count.begin() + i);
                 have_number[number_list[i]] = false;
                 number_list.erase(number_list.begin() + i);
+                // last_vyaw_near_zero.erase(last_vyaw_near_zero.begin() + i);
                 i--;
                 continue;
             }
@@ -108,6 +109,11 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
                 ekf_list[i].get_X()(7) = OUTPOSE_R;
                 ekf_list[i].get_X()(5) = ekf_list[i].get_X()(4);
             }
+            // double &vyaw = ekf_list[i].get_X()(10);
+            // if (fabs(vyaw) > gp->yaw_speed_small && last_vyaw_near_zero[i]) {
+            //     vyaw = (vyaw > 0 ? 1 : -1) * gp->yaw_speed_large;
+            // }
+            // last_vyaw_near_zero[i] = (fabs(vyaw) < gp->yaw_speed_small);
         }
         if (ekf_list[i].get_X()(7)<100 || ekf_list[i].get_X()(8)<100 || abs(ekf_list[i].get_X()(10)) > 20){
             ekf_list.erase(ekf_list.begin() + i);
@@ -115,6 +121,7 @@ void Tracker::track(std::vector<Armor> &armors_curr, Translator &ts, double dt){
             lost_frame_count.erase(lost_frame_count.begin() + i);
             have_number[number_list[i]] = false;
             number_list.erase(number_list.begin() + i);
+            // last_vyaw_near_zero.erase(last_vyaw_near_zero.begin() + i);
             i--;
         }
     }
@@ -260,6 +267,7 @@ void Tracker::create_new_ekf(Armor &armor){
         armors_pred.push_back(calcArmor(x0(0), x0(2), x0(5), x0(8), x0(9) + M_PI/2));
         armors_pred.push_back(calcArmor(x0(0), x0(2), x0(4), x0(7), x0(9) + M_PI));
         armors_pred.push_back(calcArmor(x0(0), x0(2), x0(5), x0(8), x0(9) + 3*M_PI/2));
+        // last_vyaw_near_zero.push_back(true);
     }else{  // 前哨站
         Eigen::MatrixXd P0 = Eigen::MatrixXd::Identity(11, 11) * gp->s2p0xyr;
         P0(9, 9) = gp->s2p0yaw;
@@ -275,6 +283,7 @@ void Tracker::create_new_ekf(Armor &armor){
         armors_pred.push_back(calcArmor(x0(0), x0(2), x0(4), x0(7), x0(9) + M_PI/3*2));
         armors_pred.push_back(calcArmor(x0(0), x0(2), x0(4), x0(7), x0(9) + M_PI/3*4));
         armors_pred.push_back(Armor{0});
+        // last_vyaw_near_zero.push_back(true);
     }   
 }
 

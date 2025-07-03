@@ -4,7 +4,7 @@ cam_index: 0
 enable_auto_exp: 0
 energy_exp_time: 950.
 blue_exp_time: 800.
-red_exp_time: 300.
+red_exp_time: 800.
 r_balance: 3600
 g_balance: 1024
 b_balance: 1957

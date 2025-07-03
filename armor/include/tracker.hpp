@@ -38,8 +38,9 @@ private:
     std::vector<int> number_list;
     std::vector<Armor> armors_pred;
     bool have_number[8] = {false};
+    // std::vector<bool> last_vyaw_near_zero; // 记录每个目标vyaw上次是否接近0
     int index = 0;
-
+    
     void refine_zVector(int ekf_id);
     void create_new_ekf(Armor &armor);
     // double cost_threshold;
