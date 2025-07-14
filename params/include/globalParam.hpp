@@ -316,6 +316,10 @@ struct GlobalParam
     double r_yaw_corrected = 1;
     double resize = 1;
 
+    // === 新增：用于转速突变判定和赋值 ===
+    double yaw_speed_small = 0.5;   // 小阈值
+    double yaw_speed_large = 6.0;    // 赋予的较大初始值
+
     double small_armor_a = 67.5; // 小装甲板的长
     double small_armor_b = 28.5; // 小装甲板的宽
     double big_armor_a = 112.5;  // 大装甲板的长
