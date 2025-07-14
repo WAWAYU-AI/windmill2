@@ -49,7 +49,7 @@ struct KeyPoints {
 };
 
 DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
-                       GlobalParam &gp, int is_blue);
+                       GlobalParam &gp, int is_blue, Translator &translator);
 
 KeyPoints detect_key_points(const std::vector<std::vector<cv::Point>> &contours,
                             const std::vector<cv::Vec4i> &hierarchy,

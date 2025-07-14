@@ -96,11 +96,16 @@ void GlobalParam::initGlobalParam(const int color)
       }
       fs["circularityThreshold"] >> circularityThreshold;
       fs["medianBlurSize"] >> medianBlurSize;
+      fs["medianBlurSize_1"] >> medianBlurSize_1;
       fs["debug"] >> debug;
       fs["dilationSize"] >> dilationSize;
+      fs["dilationSize_1"] >> dilationSize_1;
       fs["erosionSize"] >> erosionSize;
+      fs["erosionSize_1"] >> erosionSize_1;
       fs["thresholdValue"] >> thresholdValue;
+      fs["thresholdValue_1"] >> thresholdValue_1;
       fs["thresholdValueBlue"] >> thresholdValueBlue;
+      fs["thresholdValueBlue_1"] >> thresholdValueBlue_1;
       fs["thresholdValue_for_roi"] >> thresholdValue_for_roi;
       fs["rect_area_threshold"] >> rect_area_threshold;
       fs["circle_area_threshold"] >> circle_area_threshold;
@@ -120,8 +125,11 @@ void GlobalParam::initGlobalParam(const int color)
       fs["gap_control"] >> gap_control;
     
       fs["tx_cam2cloud"] >> tx_cam2cloud;
+      fs["tx_cam2cloud_1"] >> tx_cam2cloud_1;
       fs["ty_cam2cloud"] >> ty_cam2cloud;
+      fs["ty_cam2cloud_1"] >> ty_cam2cloud_1;
       fs["tz_cam2cloud"] >> tz_cam2cloud;
+      fs["tz_cam2cloud_1"] >> tz_cam2cloud_1;
     
       fs["delta_t"] >> delta_t;
     
@@ -220,10 +228,15 @@ void GlobalParam::saveGlobalParam()
       }
       fs << "circularityThreshold" << circularityThreshold;
       fs << "medianBlurSize" << medianBlurSize;
+      fs << "medianBlurSize_1" << medianBlurSize_1;
       fs << "dilationSize" << dilationSize;
+      fs << "dilationSize_1" << dilationSize_1;
       fs << "erosionSize" << erosionSize;
+      fs << "erosionSize_1" << erosionSize_1;
       fs << "thresholdValue" << thresholdValue;
+      fs << "thresholdValue_1" << thresholdValue_1;
       fs << "thresholdValueBlue" << thresholdValueBlue;
+      fs << "thresholdValueBlue_1" << thresholdValueBlue_1;
       fs << "thresholdValue_for_roi" << thresholdValue_for_roi;
       fs << "rect_area_threshold" << rect_area_threshold;
       fs << "circle_area_threshold" << circle_area_threshold;
@@ -243,8 +256,11 @@ void GlobalParam::saveGlobalParam()
       fs << "gap_control" << gap_control;
     
       fs << "tx_cam2cloud" << tx_cam2cloud;
+      fs << "tx_cam2cloud_1" << tx_cam2cloud_1;
       fs << "ty_cam2cloud" << ty_cam2cloud;
+      fs << "ty_cam2cloud_1" << ty_cam2cloud_1;
       fs << "tz_cam2cloud" << tz_cam2cloud;
+      fs << "tz_cam2cloud_1" << tz_cam2cloud_1;
     
       fs << "delta_t" << delta_t;
       fs.release();

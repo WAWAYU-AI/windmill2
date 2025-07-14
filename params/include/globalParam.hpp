@@ -30,10 +30,9 @@ typedef struct
     // 电控发送的信息
     float yaw;             // 当前车云台的yaw角，单位为弧度制
     float pitch;           // 当前车云台的pitch角，单位为弧度制
-#ifdef DRONE
     float roll;            // 当前车云台的roll角，单位为弧度制
-#endif
-    uint8_t status;        // 状态位，/5==0自己为红色，/5==0自己为蓝色，%5==0为自瞄，%5==1为小符，%5==3为大符
+    uint8_t status;
+    uint8_t is_far;         // 状态位，/5==0自己为红色，/5==0自己为蓝色，%5==0为自瞄，%5==1为小符，%5==3为大符
     uint8_t armor_flag;    // 目标车编号
     float latency;         // 延迟，单位为毫秒
     float x_c;             // 目标中心点x坐标，单位为毫米
@@ -357,40 +356,48 @@ struct GlobalParam
 
     //===============打符识别部分==============//
 
-  int circularityThreshold = 45;
-  int medianBlurSize = 3;
-  int debug = 0;
-  int dilationSize = 7;
-  int erosionSize = 3;
-  int thresholdValue = 108;
-  int thresholdValueBlue = 160;
-  int thresholdValue_for_roi = 80;
-  int rect_area_threshold = 2000;
-  int circle_area_threshold = 50;
-
-  int target_circle_area_min = 8000;
-  int target_circle_area_max = 20000;
-  int R_area_min = 800;
-  int R_area_max = 2200;
-
-  int length_width_ratio_threshold = 3;
-  int minContourArea = 200;
-
-  //===============打符Identify==============//
-  int list_size = 280;
-  double d_Radius = 100;
-  double d_P1P3 = 100;
-  double d_RP2 = 100;
-
-  int gap = 0;
-  int gap_control = 1;
-
-  double tx_cam2cloud = 0;
-  double ty_cam2cloud = 0;
-  double tz_cam2cloud = 0;
-
-  double delta_t = 0.10;
-
+    int circularityThreshold = 45;
+    int medianBlurSize = 3;
+    int medianBlurSize_1 = 3;
+    int debug = 0;
+    int dilationSize = 7;
+    int dilationSize_1 = 7;
+    int erosionSize = 3;
+    int erosionSize_1 = 3;
+    int thresholdValue = 108;
+    int thresholdValue_1 = 108;
+    int thresholdValueBlue = 160;
+    int thresholdValueBlue_1 = 160;
+    int thresholdValue_for_roi = 80;
+    int rect_area_threshold = 2000;
+    int circle_area_threshold = 50;
+  
+    int target_circle_area_min = 8000;
+    int target_circle_area_max = 20000;
+    int R_area_min = 800;
+    int R_area_max = 2200;
+  
+    int length_width_ratio_threshold = 3;
+    int minContourArea = 200;
+  
+    //===============打符Identify==============//
+    int list_size = 280;
+    double d_Radius = 100;
+    double d_P1P3 = 100;
+    double d_RP2 = 100;
+  
+    int gap = 0;
+    int gap_control = 1;
+  
+    double tx_cam2cloud = 0;
+    double tx_cam2cloud_1 = 0;
+    double ty_cam2cloud = 0;
+    double ty_cam2cloud_1 = 0;
+    double tz_cam2cloud = 0;
+    double tz_cam2cloud_1 = 0;
+  
+    double delta_t = 0.10;
+  
     void initGlobalParam(const int color);
     void saveGlobalParam();
 };

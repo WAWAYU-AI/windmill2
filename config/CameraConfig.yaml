@@ -4,7 +4,7 @@ cam_index: 0
 enable_auto_exp: 0
 energy_exp_time: 950.
 blue_exp_time: 800.
-red_exp_time: 300.
+red_exp_time: 1000.
 r_balance: 3600
 g_balance: 1024
 b_balance: 1957
@@ -24,6 +24,6 @@ k2: -7.3340558000000000e-01
 k3: 4.5045779200000000e+00
 p1: -1.1118180000000000e-02
 p2: -8.0313899999999994e-03
-vector_x: 4.5180000000000000e+01
-vector_y: -59.
-vector_z: 5.8497000000000000e+01
+vector_x: 79.68
+vector_y: -59
+vector_z: 60

@@ -188,10 +188,12 @@ int WMPredict::StartPredict(Translator &translator, GlobalParam &gp,
     // this->NewtonDspSmallAnyPos(WMI.getTransformationMatrix(), translator, gp,
     // WMI.getLastAngle()); // 备用或旧方法
   } else {
+    // this->clockwise = 0;
     if (this->clockwise != -1) {
       // 为小符设置参数，使其适用于 NewtonDspBigAnyPos 的恒定角速度模型
       this->A0 = 0.0;
       this->b = 1.047197551; // 小符的角速度大小
+      // this->b = 0; // 小符的角速度大小
       this->w_big = 1.0; // 当 A0 为 0 时，此参数影响不大，设为非零良性值
       this->fai = 0.0; // 当 A0 为 0 时，此参数影响不大
 

@@ -237,6 +237,7 @@ void *OperationFunction(void *arg)
             printf("FPS: %d  \tLatency: %.3f ms\n", fps, translator.message.latency);
 #endif
         } else {
+            // translator.message.is_far = 0;
             WMI.identifyWM(pic, translator);
             WMIPRE.StartPredict(translator, gp, WMI);
             MManager.write(translator, *serialPort);
