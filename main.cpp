@@ -138,7 +138,7 @@ void *OperationFunction(void *arg)
     // 当前按键
     int key = 0;
     // debug时waitKey时间，也就是整体的运行速率
-    int debug_t = 1;
+    int debug_t = 33;
     // 储存相机坐标系下的点，用于绘图
     std::deque<cv::Point3f> points3d;
     // 储存当前时间，用于绘图

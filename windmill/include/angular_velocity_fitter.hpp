@@ -5,6 +5,7 @@
 #include <vector>
 #include <array>
 #include <utility> // For std::pair
+#include <cstddef>
 
 namespace AngleFitter {
 
@@ -58,4 +59,4 @@ bool fitAngularVelocityParameters(
 double getAngleFromParameters(double time, const std::array<double, 5>& params);
 
 } // namespace AngleFitter
-#endif // TRADITIONAL_DETECTION_HPP
+#endif // ANGULAR_VELOCITY_FITTER_HPP 

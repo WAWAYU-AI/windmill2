@@ -21,8 +21,10 @@
     add_definitions(-DVISUALIZE_PREDICTION)
     # add_definitions(-DDEBUGCOLOR)
     # add_definitions(-DDEBUGNUM)
-    # add_definitions(-DVIRTUALGRAB)  # 打开虚拟取流 即用视频跑
-    # add_definitions(-DNOPORT)    
+
+     add_definitions(-DVIRTUALGRAB)  # 打开虚拟取流 即用视频跑
+     add_definitions(-DNOPORT)   
+
     # add_definitions(-DUSETRIGGERMODE)
     # add_definitions(-DTHREADANALYSIS)
     # add_definitions(-DDRONE)

@@ -226,7 +226,7 @@ struct GlobalParam
     float fake_pitch = 0.0F;
     float fake_yaw = 0.0F;
     float fake_bullet_v = 25.0F;
-    uint8_t fake_status = 5;
+    uint8_t fake_status = 1;
     float fake_now_time = 0;
     float fake_predict_time = 0;
 
@@ -363,7 +363,7 @@ struct GlobalParam
     int circularityThreshold = 45;
     int medianBlurSize = 3;
     int medianBlurSize_1 = 3;
-    int debug = 0;
+    int debug = 1;
     int dilationSize = 7;
     int dilationSize_1 = 7;
     int erosionSize = 3;
