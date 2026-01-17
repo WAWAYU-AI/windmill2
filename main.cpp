@@ -138,7 +138,7 @@ void *OperationFunction(void *arg)
     // 当前按键
     int key = 0;
     // debug时waitKey时间，也就是整体的运行速率
-    int debug_t = 33;
+    int debug_t = 1;
     // 储存相机坐标系下的点，用于绘图
     std::deque<cv::Point3f> points3d;
     // 储存当前时间，用于绘图
@@ -263,6 +263,7 @@ void *OperationFunction(void *arg)
         {
             fps = frame_count;
             // printf("FPS: %d  \tLatency: %.3f ms\n", frame_count, translator.message.latency);
+            printf("\rFPS: %-3d | Status: %-2u", fps, (unsigned int)translator.message.status);
             frame_count = 0;
             fps_time_stamp = now_time_stamp;
         }

@@ -226,7 +226,7 @@ struct GlobalParam
     float fake_pitch = 0.0F;
     float fake_yaw = 0.0F;
     float fake_bullet_v = 25.0F;
-    uint8_t fake_status = 1;
+    uint8_t fake_status = 3;
     float fake_now_time = 0;
     float fake_predict_time = 0;
 

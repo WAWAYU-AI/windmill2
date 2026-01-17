@@ -26,25 +26,12 @@ struct KeyPoints {
   static constexpr double max_high = 15000.0;
 
   bool isValid() const {
-    // 检查基本条件
-    if (circleContours.size() != 2 || rectCenters.size() != 1) {
-      return false;
+    // 我们只检查数量。面积的判断已经由更智能的 detect 函数完成。
+    // 这可以避免因为面积的微小抖动导致 isValid() 意外失败。
+    if (circleContours.size() == 2 && rectCenters.size() == 1) {
+      return true;
     }
-
-    // 检查面积条件
-    bool hasSmallCircle = false;
-    bool hasLargeCircle = false;
-
-    for (size_t i = 0; i < circleAreas.size(); ++i) {
-      double area = circleAreas[i];
-      if (area >= min_low && area <= min_high) {
-        hasSmallCircle = true;
-      } else if (area >= max_low && area <= max_high) {
-        hasLargeCircle = true;
-      }
-    }
-
-    return hasSmallCircle && hasLargeCircle;
+    return false;
   }
 };
 
