@@ -11,8 +11,8 @@ do
     > /dev/$name
     if ! `ps aux | grep -v grep | grep /home/xjturm/DX_aimbot_test/build/infantry_new`
     then
-            echo 'bfjg' | sudo -S chmod 666 /dev/ttyACM0
-            /home/xjturm/DX_aimbot/build/infantry_new /dev/$name $BaudRate
+            echo 'shijue66' | sudo -S chmod 666 /dev/ttyACM0
+            /home/wawayu/DX_aimbot/build/infantry_new /dev/$name $BaudRate
     fi
     echo "Unexpected Dump"
     sleep 0.2

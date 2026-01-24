@@ -105,30 +105,52 @@ void MessageManager::read(Translator &ts, SerialPort &serialPort)
 {
     int len = 0;
 #ifndef NOPORT
-    this->message_lock.lock();
+    // --- 核心修改：将加锁操作后移 ---
+
+    // this->message_lock.lock();  // <-- 原来的加锁位置，我们把它移到后面
+
     int count=0;
+    
+    // 1. 创建一个局部临时变量用于接收数据
+    Translator local_temp;
+
     // 开始读取串口信息，存储在临时文件中，这样可以快速反复读取，避免串口中信息来不及读取导致堆积
     while (1)
     {
         if (count>120) std::exit(-1);
-        len = serialPort.Read(ts.data, 99);
+        
+        // 2. 在锁的外面进行阻塞式读取，将数据读入 local_temp
+        len = serialPort.Read(local_temp.data, 99);
 
         if (len == 64)
         {
+        //     if (CheckCrc(ts, 61)) { // 通常CRC校验不包括CRC本身(2字节)和帧尾(1字节)，但要和电控确认。这里先按61或62尝试
+        //        LOG(INFO) << "CRC Check OK. Status: " << +ts.message.status;
+        //    } else {
+        //        LOG(ERROR) << "!!! CRC Check FAILED !!! Status: " << +ts.message.status;
+        //    }
             usleep(100);
 
             break;
         }
 #ifdef THREADANALYSIS
+    // 注意：这里的 ts 仍然是全局的 temp, 它的值可能不是最新的
     printf("len1 is %d\n", len);
-    printf("status1 is %d\n", ts.message.status);
+    printf("status1 is %d\n", ts.message.status); 
 #endif
         if (len == -1 || len == 0) std::exit(-1); //csy 7_24 new added
         count++;
        // //std::cout << "wei: " << ts.messageWM.bullet_v << std::endl;
         usleep(1000);
     }
+
+    // 3. 只有在读取成功后，才加锁并进行一次快速拷贝
+    this->message_lock.lock();
+    ts = local_temp; // 将临时变量的内容安全地赋给全局变量
     this->message_lock.unlock();
+
+    // this->message_lock.unlock(); // <-- 原来的解锁位置
+
     // 如果长度为-1，为error，也就是串口连接出现问题，退出程序，并依靠外部的脚本使程序重新启动
 
 #endif // NOPORT

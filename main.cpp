@@ -219,6 +219,7 @@ void *OperationFunction(void *arg)
             empty_frame_count = 0;
         }
         // 自瞄模式
+        translator.message.status = 3; 
         if (translator.message.status == 99)
             abort();
         if (translator.message.status % 5 == 0 || translator.message.status % 5 == 2)
@@ -234,13 +235,20 @@ void *OperationFunction(void *arg)
 // #ifdef DEBUGMODE
 #ifdef SHOW_FPS
             cv::putText(pic,"FPS: " + to_string(fps), cv::Point(1000, 50), cv::FONT_HERSHEY_SIMPLEX, 1.5, cv::Scalar(255, 255, 255), 2);
-            printf("FPS: %d  \tLatency: %.3f ms\n", fps, translator.message.latency);
+            // printf("FPS: %d  \tLatency: %.3f ms \tStatus: %u \tYaw: %.3f \tRoll: %.3f\n", fps, translator.message.latency, (unsigned int)translator.message.status, translator.message.yaw);
 #endif
         } else {
             // translator.message.is_far = 0;
             WMI.identifyWM(pic, translator);
             WMIPRE.StartPredict(translator, gp, WMI);
             MManager.write(translator, *serialPort);
+#ifdef SHOW_FPS
+            // 为了避免和 WMI 内部的绘制冲突，我们从 WMI 获取最终图像再绘制
+            pic = WMI.getImg0(); 
+            cv::putText(pic,"FPS: " + to_string(fps), cv::Point(1000, 50), cv::FONT_HERSHEY_SIMPLEX, 1.5, cv::Scalar(0, 255, 0), 2); // 改为绿色以便区分
+            // 终端输出
+            printf("FPS: %d  \tLatency: %.3f ms | Status: %u\n", fps, translator.message.latency, (unsigned int)translator.message.status);
+#endif
         }
 
 #ifdef DEBUGMODE
@@ -263,7 +271,7 @@ void *OperationFunction(void *arg)
         {
             fps = frame_count;
             // printf("FPS: %d  \tLatency: %.3f ms\n", frame_count, translator.message.latency);
-            printf("\rFPS: %-3d | Status: %-2u", fps, (unsigned int)translator.message.status);
+            //printf("\rFPS: %-3d | Status: %-2u", fps, (unsigned int)translator.message.status);
             frame_count = 0;
             fps_time_stamp = now_time_stamp;
         }

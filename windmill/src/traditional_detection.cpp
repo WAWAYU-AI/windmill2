@@ -96,6 +96,7 @@ void createTrackbars(GlobalParam &gp) {
   createTrackbar("Length Width Ratio Threshold", WINDOW_NAME,
                  &gp.length_width_ratio_threshold, 10, nullptr);
   createTrackbar("Threshold", WINDOW_NAME, &gp.thresholdValue, 255, nullptr);
+  createTrackbar("Threshold for ROI", WINDOW_NAME, &gp.thresholdValue_for_roi, 255, nullptr);
 }
 
 /**
@@ -793,16 +794,19 @@ KeyPoints detect_key_points(
   return final_result;
 }
 
-
 DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
                        GlobalParam &gp, int is_blue, Translator &translator) {
 
   DetectionResult result;
   auto start_time = high_resolution_clock::now();
-
   Mat final_mask = preprocess(inputImage, gp, is_blue, translator);
-  Mat processedImage = inputImage.clone();
+  
+  // 保留 final_mask 的显示，用于调试二值化效果
+  if (gp.debug) {
+    imshow("final_mask", final_mask);
+  }
 
+  Mat processedImage = inputImage.clone();
   vector<vector<Point>> contours;
   vector<Vec4i> hierarchy;
   findContours(final_mask, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
@@ -819,62 +823,97 @@ DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
   bool is_big_windmill_mode = (translator.message.status % 5 == 3);
   KeyPoints final_keyPoints;
 
-  // --- 这是唯一的修改点：加入了 static 变量和锁定逻辑 ---
   static bool is_target_locked = false;
-  static cv::Point2f locked_target_anchor_pos; // 我们锁定的是矩形或灯臂的位置
+  static cv::Point2f locked_vector(0, 0); 
 
-  // 如果不是大符双矩形模式，则重置锁定
   if (!is_big_windmill_mode || all_keyPoints.rectCenters.size() != 2) {
       is_target_locked = false;
   }
 
   if (is_big_windmill_mode && all_keyPoints.rectCenters.size() == 2) {
-      if (gp.debug) std::cout << "[大符逻辑] " << (is_target_locked ? "持续跟踪..." : "首次锁定...") << std::endl;
-
-      cv::Point2f rect1_center = all_keyPoints.rectCenters[0];
-      cv::Point2f rect2_center = all_keyPoints.rectCenters[1];
-      cv::Point2f selected_rect_center;
-
-      if (!is_target_locked) {
-          // 首次锁定：选择上方的
-          selected_rect_center = (rect1_center.y < rect2_center.y) ? rect1_center : rect2_center;
-          locked_target_anchor_pos = selected_rect_center;
-          is_target_locked = true;
-      } else {
-          // 持续跟踪：选择离上一帧位置最近的
-          double dist1 = cv::norm(rect1_center - locked_target_anchor_pos);
-          double dist2 = cv::norm(rect2_center - locked_target_anchor_pos);
-          selected_rect_center = (dist1 < dist2) ? rect1_center : rect2_center;
-          locked_target_anchor_pos = selected_rect_center; // 更新位置
-      }
+      int r_idx = -1;
+      vector<size_t> blade_candidate_indices;
       
-      final_keyPoints.rectCenters.push_back(selected_rect_center);
-
-      // ... (后续的灯臂和R标筛选逻辑不变) ...
-      int blade_idx = -1, r_idx = -1;
-      double min_blade_dist = DBL_MAX;
       if (!all_keyPoints.circleAreas.empty()){
           auto min_it = std::min_element(all_keyPoints.circleAreas.begin(), all_keyPoints.circleAreas.end());
           r_idx = std::distance(all_keyPoints.circleAreas.begin(), min_it);
       }
       for (size_t i = 0; i < all_keyPoints.circleContours.size(); ++i) {
-          if ((int)i == r_idx) continue;
-          double dist = cv::norm(cv::Point2f(all_keyPoints.circlePoints[i]) - selected_rect_center);
-          if (dist < min_blade_dist) { min_blade_dist = dist; blade_idx = i; }
+          if ((int)i != r_idx) blade_candidate_indices.push_back(i);
       }
-      if (blade_idx != -1 && r_idx != -1) {
-          final_keyPoints.circleContours.push_back(all_keyPoints.circleContours[blade_idx]);
-          final_keyPoints.circlePoints.push_back(all_keyPoints.circlePoints[blade_idx]);
-          final_keyPoints.circleAreas.push_back(all_keyPoints.circleAreas[blade_idx]);
-          final_keyPoints.circularities.push_back(all_keyPoints.circularities[blade_idx]);
+
+      int selected_blade_idx = -1;
+
+      if (r_idx != -1 && !blade_candidate_indices.empty()) {
+          cv::Point2f r_center(all_keyPoints.circlePoints[r_idx]);
+
+          if (!is_target_locked) {
+              // 首次锁定 (策略：选择Y坐标最小的/最靠上的)
+              double min_y = DBL_MAX;
+              for (size_t idx : blade_candidate_indices) {
+                  if (all_keyPoints.circlePoints[idx].y < min_y) {
+                      min_y = all_keyPoints.circlePoints[idx].y;
+                      selected_blade_idx = idx;
+                  }
+              }
+              if (selected_blade_idx != -1) {
+                  locked_vector = cv::Point2f(all_keyPoints.circlePoints[selected_blade_idx]) - r_center;
+                  double norm = cv::norm(locked_vector);
+                  if (norm > 0) locked_vector /= norm;
+                  is_target_locked = true;
+                  if (gp.debug) std::cout << "[锁定] 首次锁定上方目标。" << std::endl;
+              }
+          } else {
+              // 持续跟踪 (策略：向量相似度)
+              double max_similarity = -2.0;
+              for (size_t idx : blade_candidate_indices) {
+                  cv::Point2f current_vec = cv::Point2f(all_keyPoints.circlePoints[idx]) - r_center;
+                  double norm = cv::norm(current_vec);
+                  if (norm > 0) current_vec /= norm;
+                  
+                  double similarity = locked_vector.dot(current_vec);
+                  if (similarity > max_similarity) {
+                      max_similarity = similarity;
+                      selected_blade_idx = idx;
+                  }
+              }
+              
+              if (selected_blade_idx != -1 && max_similarity > 0.8) {
+                  cv::Point2f new_vec = cv::Point2f(all_keyPoints.circlePoints[selected_blade_idx]) - r_center;
+                  double norm = cv::norm(new_vec);
+                  if (norm > 0) locked_vector = new_vec / norm;
+                  // if (gp.debug) std::cout << "[跟踪] 相似度: " << max_similarity << std::endl;
+              } else {
+                  if (gp.debug) std::cout << "[警告] 目标丢失。" << std::endl;
+                  selected_blade_idx = -1;
+              }
+          }
+      }
+      
+      // 提纯
+      if (selected_blade_idx != -1 && r_idx != -1) {
+          cv::Point2f selected_blade_center(all_keyPoints.circlePoints[selected_blade_idx]);
+          cv::Point2f selected_rect_center = all_keyPoints.rectCenters[0];
+          if (all_keyPoints.rectCenters.size() > 1) {
+             double d1 = cv::norm(all_keyPoints.rectCenters[0] - selected_blade_center);
+             double d2 = cv::norm(all_keyPoints.rectCenters[1] - selected_blade_center);
+             selected_rect_center = (d1 < d2) ? all_keyPoints.rectCenters[0] : all_keyPoints.rectCenters[1];
+          }
+          final_keyPoints.rectCenters.push_back(selected_rect_center);
+          final_keyPoints.circleContours.push_back(all_keyPoints.circleContours[selected_blade_idx]);
+          final_keyPoints.circlePoints.push_back(all_keyPoints.circlePoints[selected_blade_idx]);
+          final_keyPoints.circleAreas.push_back(all_keyPoints.circleAreas[selected_blade_idx]);
+          final_keyPoints.circularities.push_back(all_keyPoints.circularities[selected_blade_idx]);
           final_keyPoints.circleContours.push_back(all_keyPoints.circleContours[r_idx]);
           final_keyPoints.circlePoints.push_back(all_keyPoints.circlePoints[r_idx]);
           final_keyPoints.circleAreas.push_back(all_keyPoints.circleAreas[r_idx]);
           final_keyPoints.circularities.push_back(all_keyPoints.circularities[r_idx]);
+      } else {
+          final_keyPoints.rectCenters.clear(); 
       }
   } else {
-      is_target_locked = false; // 确保在其他模式下重置
-      if (gp.debug) std::cout << "[原始逻辑] 执行默认筛选..." << std::endl;
+      // 小符逻辑
+      is_target_locked = false;
       final_keyPoints = all_keyPoints;
       select_final_circles(final_keyPoints, final_keyPoints.rectCenters, initial_circle_child_counts, gp.debug, gp);
       if (final_keyPoints.rectCenters.size() > 1 && !final_keyPoints.circlePoints.empty()) {
@@ -889,13 +928,12 @@ DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
           final_keyPoints.rectCenters.push_back(final_rect);
       }
   }
-    
+
+  // 统一检查
   if (!final_keyPoints.isValid()) {
-    if (gp.debug) {
-      std::cout << "[失败] 最终构建的keyPoints无效! 圆: " << final_keyPoints.circleContours.size()
-                << ", 矩形: " << final_keyPoints.rectCenters.size() << std::endl;
-    }
-    return DetectionResult();
+      // if (gp.debug) std::cout << "[失败] keyPoints无效! 圆: " << final_keyPoints.circleContours.size() << ", 矩形: " << final_keyPoints.rectCenters.size() << std::endl;
+      result.processedImage = processedImage;
+      return result;
   }
   
   vector<size_t> indices(final_keyPoints.circleContours.size());
@@ -904,7 +942,10 @@ DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
     return final_keyPoints.circleAreas[i1] > final_keyPoints.circleAreas[i2];
   });
     
-  if (indices.size() < 2) { return DetectionResult(); }
+  if (indices.size() < 2) { 
+    result.processedImage = processedImage;
+    return result; 
+  }
     
   blade.apex.push_back(final_keyPoints.circlePoints[indices[1]]);
   blade.apex.push_back(final_keyPoints.circlePoints[indices[0]]);
@@ -918,21 +959,13 @@ DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
       findIntersectionsByEquation(center1, final_keyPoints.rectCenters[0], radius,
                                   ellipse, processedImage, gp, blade);
     
+  // 移除了所有额外的可视化绘制代码
+    
   result.processedImage = processedImage;
-  
-  if (gp.debug && is_target_locked) {
-      cv::circle(processedImage, locked_target_anchor_pos, 25, cv::Scalar(0, 255, 255), 3); 
-      cv::putText(processedImage, "LOCKED", cv::Point2f(locked_target_anchor_pos) + cv::Point2f(25, -15), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 255), 2);
-  }
-    
-  auto end_time = high_resolution_clock::now();
-  result.processingTime =
-      duration_cast<milliseconds>(end_time - start_time).count();
   blade.apex.push_back(final_keyPoints.rectCenters[0]);
-    
+
   return result;
 }
-
 
 // 通过方程求解交点的方法
 vector<Point> findIntersectionsByEquation(const Point &center1,
