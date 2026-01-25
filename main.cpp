@@ -219,7 +219,7 @@ void *OperationFunction(void *arg)
             empty_frame_count = 0;
         }
         // 自瞄模式
-        translator.message.status = 3; 
+        //translator.message.status = 3; 
         if (translator.message.status == 99)
             abort();
         if (translator.message.status % 5 == 0 || translator.message.status % 5 == 2)
@@ -257,7 +257,19 @@ void *OperationFunction(void *arg)
         cv::Mat tmp;
         cv::resize(pic, tmp, cv::Size((int)pic.size[1] * gp.resize, (int)pic.size[0] * gp.resize), cv::INTER_LINEAR);
         cv::imshow("aimauto__", tmp);
-        key = cv::waitKey(debug_t);
+                const double TARGET_RENDER_FPS = 60.0; // 目标渲染帧率，可以设为60
+        const double frame_duration_ms = 1000.0 / TARGET_RENDER_FPS;
+        
+        // t1 在您的原始代码中是在循环开头定义的，这里我们用 t_loop_start
+        auto processing_time_ms = std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::high_resolution_clock::now() - t_loop_start
+        ).count() / 1000.0;
+        
+        int wait_time_ms = frame_duration_ms - processing_time_ms;
+        
+        // 如果处理得太快，就等待剩余的时间；否则至少等待1ms让窗口响应
+        key = cv::waitKey(wait_time_ms > 0 ? wait_time_ms : 1); 
+
         if (key == ' ')
             key = cv::waitKey(0);
         if (key == 27 || key == 'q')
