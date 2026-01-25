@@ -291,7 +291,7 @@ identify_initial_shapes(const std::vector<std::vector<cv::Point>> &contours,
  * @param debug_flag 是否开启调试模式
  * @return 最终确定的矩形中心点列表
  */
-// ==================== 完整的、已修改的 refine_rectangles_roi 函数 START ====================
+// ==================== 最终方案 V40: 包含ROI可视化且无错误的 refine_rectangles_roi 函数 START ====================
 
 std::vector<cv::Point2f> refine_rectangles_roi(
     const std::vector<std::vector<cv::Point>> &all_contours,
@@ -369,28 +369,31 @@ std::vector<cv::Point2f> refine_rectangles_roi(
                   << " 的ROI通道数异常: " << roi.channels() << std::endl;
       continue;
     }
-    // 使用固定阈值进行二值化，可根据实际情况调整
-    cv::threshold(roi_gray, roi_binary, gp.thresholdValue_for_roi, 255,
-                  cv::THRESH_BINARY);
-    Mat kernel = getStructuringElement(MORPH_RECT, Size(1, 1));
-
-    //  dilate(roi_binary, roi_binary, kernel);
-
-    if (debug_flag) {
-      // cv::imshow("ROI for Rect Idx " + std::to_string(original_contour_idx),
-      //            roi);
-      // cv::imshow("ROI Binary for Rect Idx " +
-      //                std::to_string(original_contour_idx),
-      //            roi_binary);
-    }
-
-    // 检查ROI特征 (例如：流水灯条在ROI内应有多个小轮廓)
-    bool passes_further_check = false;
+    
+    // 使用固定阈值进行二值化
+    cv::threshold(roi_gray, roi_binary, gp.thresholdValue_for_roi, 255, cv::THRESH_BINARY);
+    
+    // 寻找ROI内的轮廓
     std::vector<std::vector<cv::Point>> roi_contours;
-    cv::findContours(roi_binary, roi_contours, cv::RETR_EXTERNAL,
-                     cv::CHAIN_APPROX_SIMPLE);
-    if (roi_contours.size() >
-        3) { // 流水灯条的特征：内部有多个亮灯区域，形成多个小轮廓
+    cv::findContours(roi_binary, roi_contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    // --- 智能可视化：只显示有效的前2个ROI ---
+    /*if (debug_flag && roi_contours.size() > 1 && roi_passed_indices.size() < 2) {
+        std::string winName = "ROI_Valid_" + std::to_string(roi_passed_indices.size());
+        cv::Mat roi_show;
+        cv::resize(roi_binary, roi_show, cv::Size(200, 100)); 
+        cv::cvtColor(roi_show, roi_show, cv::COLOR_GRAY2BGR);
+        std::string info = "ID:" + std::to_string(original_contour_idx) + 
+                           " Cnt:" + std::to_string(roi_contours.size());
+        cv::putText(roi_show, info, cv::Point(5, 20), 
+                    cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 0), 2);
+        cv::imshow(winName, roi_show);
+    }*/
+    // ------------------------------------
+
+    // 检查ROI特征 (只要内部有超过1个小轮廓，就认为是灯条)
+    bool passes_further_check = false;
+    if (roi_contours.size() > 1) { 
       passes_further_check = true;
     }
 
@@ -404,6 +407,7 @@ std::vector<cv::Point2f> refine_rectangles_roi(
                   << ")。" << std::endl;
     }
   }
+  
   // 更新候选列表为通过ROI筛选的矩形
   candidate_indices = roi_passed_indices;
   candidate_centers_coords = roi_passed_centers;
@@ -414,9 +418,7 @@ std::vector<cv::Point2f> refine_rectangles_roi(
     return final_rect_centers_list;
   }
 
-  // --- 这是唯一的修改点 ---
-  // 移除了原来复杂的 "if (candidate_indices.size() > 1)" 逻辑
-  // 新逻辑: 只要有通过ROI筛选的矩形，就全部接受它们
+  // --- 这里的逻辑我们已经修改过：不再二选一，全盘接受 ---
   final_rect_centers_list = candidate_centers_coords;
   for (int idx : candidate_indices) {
     final_selected_rect_flags[idx] = true;
@@ -429,7 +431,7 @@ std::vector<cv::Point2f> refine_rectangles_roi(
   return final_rect_centers_list;
 }
 
-// ==================== 完整的、已修改的 refine_rectangles_roi 函数 END ====================
+// ==================== 最终方案 V40: 包含ROI可视化且无错误的 refine_rectangles_roi 函数 END ====================
 
 /**
  * @brief 根据矩形中心筛选最终的两个圆形轮廓 (目标扇叶和R标)
@@ -794,19 +796,34 @@ KeyPoints detect_key_points(
   return final_result;
 }
 
+
+// ==================== 最终方案 V48: 干净、安全且保留 isValid 的版本 START ====================
+
+// (辅助函数 angleDistance 和 angleDiffSigned 保持不变)
+double angleDistance(double a1, double a2) {
+    double diff = std::abs(a1 - a2);
+    if (diff > M_PI) diff = 2 * M_PI - diff;
+    return diff;
+}
+double angleDiffSigned(double a1, double a2) {
+    double diff = a1 - a2;
+    if (diff > M_PI) diff -= 2 * M_PI;
+    if (diff < -M_PI) diff += 2 * M_PI;
+    return diff;
+}
+
 DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
                        GlobalParam &gp, int is_blue, Translator &translator) {
 
   DetectionResult result;
   auto start_time = high_resolution_clock::now();
-  Mat final_mask = preprocess(inputImage, gp, is_blue, translator);
-  
-  // 保留 final_mask 的显示，用于调试二值化效果
-  if (gp.debug) {
-    imshow("final_mask", final_mask);
-  }
 
+  Mat final_mask = preprocess(inputImage, gp, is_blue, translator);
+  if (gp.debug) {
+      cv::imshow("Final Mask", final_mask); // 保留 final_mask 显示
+  }
   Mat processedImage = inputImage.clone();
+
   vector<vector<Point>> contours;
   vector<Vec4i> hierarchy;
   findContours(final_mask, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
@@ -824,16 +841,15 @@ DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
   KeyPoints final_keyPoints;
 
   static bool is_target_locked = false;
-  static cv::Point2f locked_vector(0, 0); 
+  static double locked_angle = 0.0; 
 
   if (!is_big_windmill_mode || all_keyPoints.rectCenters.size() != 2) {
       is_target_locked = false;
   }
 
-  if (is_big_windmill_mode && all_keyPoints.rectCenters.size() == 2) {
+  if (is_big_windmill_mode && all_keyPoints.rectCenters.size() == 2 && all_keyPoints.circleContours.size() >= 2) {
       int r_idx = -1;
       vector<size_t> blade_candidate_indices;
-      
       if (!all_keyPoints.circleAreas.empty()){
           auto min_it = std::min_element(all_keyPoints.circleAreas.begin(), all_keyPoints.circleAreas.end());
           r_idx = std::distance(all_keyPoints.circleAreas.begin(), min_it);
@@ -848,49 +864,40 @@ DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
           cv::Point2f r_center(all_keyPoints.circlePoints[r_idx]);
 
           if (!is_target_locked) {
-              // 首次锁定 (策略：选择Y坐标最小的/最靠上的)
-              double min_y = DBL_MAX;
+              double min_angle_val = DBL_MAX;
               for (size_t idx : blade_candidate_indices) {
-                  if (all_keyPoints.circlePoints[idx].y < min_y) {
-                      min_y = all_keyPoints.circlePoints[idx].y;
+                  double angle = atan2(all_keyPoints.circlePoints[idx].y - r_center.y, 
+                                       all_keyPoints.circlePoints[idx].x - r_center.x);
+                  if (angle < min_angle_val) {
+                      min_angle_val = angle;
                       selected_blade_idx = idx;
                   }
               }
               if (selected_blade_idx != -1) {
-                  locked_vector = cv::Point2f(all_keyPoints.circlePoints[selected_blade_idx]) - r_center;
-                  double norm = cv::norm(locked_vector);
-                  if (norm > 0) locked_vector /= norm;
+                  locked_angle = min_angle_val;
                   is_target_locked = true;
-                  if (gp.debug) std::cout << "[锁定] 首次锁定上方目标。" << std::endl;
               }
           } else {
-              // 持续跟踪 (策略：向量相似度)
-              double max_similarity = -2.0;
+              double min_dist = DBL_MAX;
               for (size_t idx : blade_candidate_indices) {
-                  cv::Point2f current_vec = cv::Point2f(all_keyPoints.circlePoints[idx]) - r_center;
-                  double norm = cv::norm(current_vec);
-                  if (norm > 0) current_vec /= norm;
-                  
-                  double similarity = locked_vector.dot(current_vec);
-                  if (similarity > max_similarity) {
-                      max_similarity = similarity;
+                  double current_angle = atan2(all_keyPoints.circlePoints[idx].y - r_center.y, 
+                                               all_keyPoints.circlePoints[idx].x - r_center.x);
+                  double dist = angleDistance(current_angle, locked_angle);
+                  if (dist < min_dist) {
+                      min_dist = dist;
                       selected_blade_idx = idx;
                   }
               }
-              
-              if (selected_blade_idx != -1 && max_similarity > 0.8) {
-                  cv::Point2f new_vec = cv::Point2f(all_keyPoints.circlePoints[selected_blade_idx]) - r_center;
-                  double norm = cv::norm(new_vec);
-                  if (norm > 0) locked_vector = new_vec / norm;
-                  // if (gp.debug) std::cout << "[跟踪] 相似度: " << max_similarity << std::endl;
+              if (selected_blade_idx != -1 && min_dist < 0.8) {
+                  locked_angle = atan2(all_keyPoints.circlePoints[selected_blade_idx].y - r_center.y, 
+                                       all_keyPoints.circlePoints[selected_blade_idx].x - r_center.x);
               } else {
-                  if (gp.debug) std::cout << "[警告] 目标丢失。" << std::endl;
+                  is_target_locked = false;
                   selected_blade_idx = -1;
               }
           }
       }
       
-      // 提纯
       if (selected_blade_idx != -1 && r_idx != -1) {
           cv::Point2f selected_blade_center(all_keyPoints.circlePoints[selected_blade_idx]);
           cv::Point2f selected_rect_center = all_keyPoints.rectCenters[0];
@@ -912,7 +919,6 @@ DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
           final_keyPoints.rectCenters.clear(); 
       }
   } else {
-      // 小符逻辑
       is_target_locked = false;
       final_keyPoints = all_keyPoints;
       select_final_circles(final_keyPoints, final_keyPoints.rectCenters, initial_circle_child_counts, gp.debug, gp);
@@ -928,12 +934,12 @@ DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
           final_keyPoints.rectCenters.push_back(final_rect);
       }
   }
-
-  // 统一检查
+    
+  // --- 恢复 isValid 检查 ---
   if (!final_keyPoints.isValid()) {
-      // if (gp.debug) std::cout << "[失败] keyPoints无效! 圆: " << final_keyPoints.circleContours.size() << ", 矩形: " << final_keyPoints.rectCenters.size() << std::endl;
-      result.processedImage = processedImage;
-      return result;
+    if (gp.debug) std::cout << "[失败] 最终构建的keyPoints无效! 圆: " << final_keyPoints.circleContours.size() << ", 矩形: " << final_keyPoints.rectCenters.size() << std::endl;
+    result.processedImage = processedImage;
+    return result;
   }
   
   vector<size_t> indices(final_keyPoints.circleContours.size());
@@ -942,7 +948,9 @@ DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
     return final_keyPoints.circleAreas[i1] > final_keyPoints.circleAreas[i2];
   });
     
+  // --- 增加绝对安全检查，防止崩溃 ---
   if (indices.size() < 2) { 
+    if (gp.debug) std::cout << "[ERROR] 排序后索引数量不足2，无法继续。" << std::endl;
     result.processedImage = processedImage;
     return result; 
   }
@@ -955,11 +963,22 @@ DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
   cv::Point2f center1(ellipse.center.x, ellipse.center.y);
   double radius = sqrt(final_keyPoints.circleAreas[indices[0]] / CV_PI);
     
+  // --- 增加对矩形数量的绝对安全检查 ---
+  if (final_keyPoints.rectCenters.empty()) {
+      if (gp.debug) std::cout << "[ERROR] 没有矩形中心可用于交点计算。" << std::endl;
+      result.processedImage = processedImage;
+      return result;
+  }
+
   result.intersections =
       findIntersectionsByEquation(center1, final_keyPoints.rectCenters[0], radius,
                                   ellipse, processedImage, gp, blade);
     
-  // 移除了所有额外的可视化绘制代码
+  if (gp.debug && is_target_locked) {
+      cv::Point locked_blade_pos = final_keyPoints.circlePoints[indices[0]];
+      cv::circle(processedImage, locked_blade_pos, 30, cv::Scalar(0, 0, 255), 3);
+      cv::putText(processedImage, "LOCKED", locked_blade_pos + cv::Point(35,0), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0,0,255), 2);
+  }
     
   result.processedImage = processedImage;
   blade.apex.push_back(final_keyPoints.rectCenters[0]);
@@ -967,6 +986,7 @@ DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
   return result;
 }
 
+// ==================== 最终方案 V48: 干净、安全且保留 isValid 的版本 END ======================
 // 通过方程求解交点的方法
 vector<Point> findIntersectionsByEquation(const Point &center1,
                                           const Point &center2, double radius,

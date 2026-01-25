@@ -551,9 +551,9 @@ void WMPredict::NewtonDspSmallAnyPos(cv::Mat world2car, Translator &translator,
   cv::putText(pitch_curve, "Pitch", cv::Point(250, 30),
               cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255, 255, 255), 1);
 
-  cv::imshow("Fai", curve);
-  cv::imshow("Yaw", yaw_curve);
-  cv::imshow("Pitch", pitch_curve);
+  //cv::imshow("Fai", curve);
+  //cv::imshow("Yaw", yaw_curve);
+  //cv::imshow("Pitch", pitch_curve);
   cv::imshow("debugImg", this->debugImg);
   cv::waitKey(1);
 #endif // VISUALIZE_PREDICTION
@@ -855,9 +855,9 @@ void WMPredict::NewtonDspBigAnyPos(cv::Mat world2car, Translator &translator,
   cv::putText(pitch_curve, "Pitch", cv::Point(250, 30),
               cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255, 255, 255), 1);
 
-  cv::imshow("Fai", curve);
-  cv::imshow("Yaw", yaw_curve);
-  cv::imshow("Pitch", pitch_curve);
+  //cv::imshow("Fai", curve);
+  //cv::imshow("Yaw", yaw_curve);
+  //cv::imshow("Pitch", pitch_curve);
   cv::imshow("debugImg", this->debugImg);
   cv::waitKey(1);
 #endif // VISUALIZE_PREDICTION
