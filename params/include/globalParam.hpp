@@ -31,9 +31,9 @@ typedef struct
     float yaw;             // 当前车云台的yaw角，单位为弧度制
     float pitch;           // 当前车云台的pitch角，单位为弧度制
     float roll;            // 当前车云台的roll角，单位为弧度制 
-    uint8_t status;
+    uint8_t status;        // 状态位，/5==0自己为红色，/5==0自己为蓝色，%5==0为自瞄，%5==1为小符，%5==3为大符
     uint8_t armor_flag;    // 目标车编号      
-    uint8_t is_far;        // 状态位，/5==0自己为红色，/5==0自己为蓝色，%5==0为自瞄，%5==1为小符，%5==3为大符
+    uint8_t is_far;        
     float latency;         // 延迟，单位为毫秒
     float x_c;             // 目标中心点x坐标，单位为毫米
     float v_x;             // 目标速度x分量，单位为毫米每秒

@@ -6,14 +6,14 @@ circularityThreshold: 45 # 圆度阈值
 medianBlurSize: 3        # 中值滤波核大小
 medianBlurSize_1: 5
 
-debug: 0     # debug模式
+debug: 1     # debug模式
 dilationSize: 9      # 膨胀核大小
 dilationSize_1: 5
 erosionSize: 5       # 腐蚀核大小
 erosionSize_1: 5
 thresholdValue: 90  # 二值化阈值
 thresholdValueBlue: 100  # 二值化阈值
-thresholdValue_for_roi: 150
+thresholdValue_for_roi: 140
 thresholdValue_1: 82
 thresholdValueBlue_1: 160
 
@@ -38,16 +38,16 @@ d_RP2: 0.825
 gap: 0
 gap_control: 1
 
-tx_cam2cloud: -0.23
-tx_cam2cloud_1: -0.23 # 远距离也使用相同值
+tx_cam2cloud: -0.26
+tx_cam2cloud_1: -0.26 # 远距离也使用相同值
 # 0
 # ty_cam2cloud: -1.42
-ty_cam2cloud: 0.250
-ty_cam2cloud_1: 0.250   # 远距离也使用相同值
+ty_cam2cloud: 0.355
+ty_cam2cloud_1: 0.355   # 远距离也使用相同值
 # -1.5
 # I0514 23:24:51.224388 234896 MessageManager.cpp:225] 当前crc: 0
 tz_cam2cloud: -0.4208
 tz_cam2cloud_1: -0.4208   # 远距离也使用相同值
 # -0.2
 
-delta_t: -0.15
+delta_t: -0.08
