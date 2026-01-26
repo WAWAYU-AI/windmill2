@@ -2,7 +2,7 @@
 ---
 
 #=====================================Detection=====================================#
-circularityThreshold: 45 # 圆度阈值
+circularityThreshold: 30 # 圆度阈值
 medianBlurSize: 3        # 中值滤波核大小
 medianBlurSize_1: 5
 
@@ -11,13 +11,13 @@ dilationSize: 9      # 膨胀核大小
 dilationSize_1: 5
 erosionSize: 5       # 腐蚀核大小
 erosionSize_1: 5
-thresholdValue: 90  # 二值化阈值
+thresholdValue: 130  # 二值化阈值
 thresholdValueBlue: 100  # 二值化阈值
 thresholdValue_for_roi: 140
 thresholdValue_1: 82
 thresholdValueBlue_1: 160
 
-rect_area_threshold: 685 #面积阈值
+rect_area_threshold: 385 #面积阈值
 circle_area_threshold: 150 # 类圆轮廓面积阈值
 
 length_width_ratio_threshold: 3 # 长宽比阈值
@@ -25,7 +25,7 @@ length_width_ratio_threshold: 3 # 长宽比阈值
 minContourArea: 150 # 最小轮廓面积
 target_circle_area_min: 4500
 target_circle_area_max: 15000
-R_area_min: 600
+R_area_min: 300
 R_area_max: 1800
 
 #=====================================Identify=====================================#
@@ -50,4 +50,4 @@ tz_cam2cloud: -0.4208
 tz_cam2cloud_1: -0.4208   # 远距离也使用相同值
 # -0.2
 
-delta_t: -0.08
+delta_t: -0.15

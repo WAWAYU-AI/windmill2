@@ -28,7 +28,7 @@ struct KeyPoints {
   bool isValid() const {
     // 我们只检查数量。面积的判断已经由更智能的 detect 函数完成。
     // 这可以避免因为面积的微小抖动导致 isValid() 意外失败。
-    if (circleContours.size() == 2 && rectCenters.size() == 1) {
+    if (circleContours.size() >= 2 && rectCenters.size() >= 1) {
       return true;
     }
     return false;
