@@ -41,7 +41,8 @@ DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
 KeyPoints detect_key_points(const std::vector<std::vector<cv::Point>> &contours,
                             const std::vector<cv::Vec4i> &hierarchy,
                             cv::Mat &processedImage, WMBlade &blade,
-                            GlobalParam &gp);
+                            GlobalParam &gp,
+                            Translator &translator);
 
 std::vector<cv::Point>
 findIntersectionsByEquation(const cv::Point &center1, const cv::Point &center2,

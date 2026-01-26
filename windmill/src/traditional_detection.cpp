@@ -182,16 +182,14 @@ cv::Mat preprocess(const cv::Mat &inputImage, GlobalParam &gp, int is_blue, Tran
  * (大小与contours相同)
  * @return KeyPoints 结构，包含初步识别的圆形轮廓及其属性 (面积、圆度、中心点)
  */
-KeyPoints
-identify_initial_shapes(const std::vector<std::vector<cv::Point>> &contours,
+KeyPoints identify_initial_shapes(const std::vector<std::vector<cv::Point>> &contours,
                         const std::vector<cv::Vec4i> &hierarchy,
                         std::vector<bool> &is_potential_rect_contour_flags,
                         GlobalParam &gp,
                         std::vector<int> &child_counts_for_circles) {
 
   KeyPoints initial_circles_result;
-  is_potential_rect_contour_flags.assign(contours.size(),
-                                         false); // 初始化标记列表
+  is_potential_rect_contour_flags.assign(contours.size(), false);
   child_counts_for_circles.clear();
 
   for (int i = 0; i < contours.size(); ++i) {
@@ -199,64 +197,70 @@ identify_initial_shapes(const std::vector<std::vector<cv::Point>> &contours,
     double area = cv::contourArea(contour);
 
     // 过滤掉面积过小的轮廓
-    if (area < gp.minContourArea) { // minContourArea 是预设阈值
+    if (area < gp.minContourArea) {
       continue;
     }
 
-    // 潜在矩形检测 (流水灯条)
-    // 流水灯条通常是外层轮廓，没有父轮廓
-    if (hierarchy[i][3] == -1) { // hierarchy[i][3] == -1 表示没有父轮廓
-      if (area > gp.rect_area_threshold) { // rect_area_threshold 是矩形面积阈值
+    // --- 矩形检测 (流水灯条) ---
+    // 逻辑：外层轮廓，面积达标，长宽比达标，且形状必须接近矩形（非梯形）
+    if (hierarchy[i][3] == -1) { 
+      if (area > gp.rect_area_threshold) {
         cv::RotatedRect rect = cv::minAreaRect(contour);
         float width = rect.size.width;
         float height = rect.size.height;
 
-        // 防止除以零
-        if (height == 0 || width == 0)
-          continue;
+        if (height == 0 || width == 0) continue;
 
-        float aspectRatio =
-            (width > height) ? (width / height) : (height / width);
+        float aspectRatio = (width > height) ? (width / height) : (height / width);
 
-        if (aspectRatio >
-            gp.length_width_ratio_threshold) { // length_width_ratio_threshold
-                                               // 是长宽比阈值
-          is_potential_rect_contour_flags[i] = true;
+        // 1. 长宽比检查
+        if (aspectRatio > gp.length_width_ratio_threshold) {
+          
+          // 2. 核心改进：矩形度检查 (Extent)
+          // 计算轮廓面积与外接矩形面积的比值
+          double rect_area = width * height;
+          double extent = area / rect_area;
+
+          // 3. 核心改进：顶点数检查
+          std::vector<cv::Point> approx;
+          double epsilon = 0.04 * cv::arcLength(contour, true); // 0.04 是常用阈值
+          cv::approxPolyDP(contour, approx, epsilon, true);
+
+          // 准则：
+          // - 矩形度 extent 应该在 0.85 以上 (矩形非常饱满)
+          // - 逼近后的顶点数应该在 4 到 6 之间 (允许透视导致的微小形变)
+          if (extent > 0.70 && approx.size() >= 3 && approx.size() <= 6) {
+              is_potential_rect_contour_flags[i] = true;
+          } else {
+              // 如果开启 debug，可以打印为什么被过滤
+              std::cout << "[过滤非矩形] ID:" << i << " Extent:" << extent << " Vertices:" << approx.size() << std::endl;
+          }
         }
       }
     }
 
-    // 如果已标记为潜在矩形，则跳过圆形检测，避免将细长矩形误判为目标圆
+    // 如果已标记为潜在矩形，则跳过圆形检测
     if (is_potential_rect_contour_flags[i]) {
       continue;
     }
 
-    // 潜在圆形检测 (目标扇叶和R标)
-    if (area >
-        gp.circle_area_threshold) { // circle_area_threshold 是圆形面积阈值
+    // --- 圆形检测 (目标扇叶和R标) ---
+    if (area > gp.circle_area_threshold) {
       double perimeter = cv::arcLength(contour, true);
-      if (perimeter == 0)
-        continue; // 防止周长为零导致除零错误
+      if (perimeter == 0) continue;
 
       double circularity = 4 * CV_PI * area / (perimeter * perimeter);
 
-      if (circularity > (gp.circularityThreshold /
-                         100.0)) { // circularityThreshold 是圆度阈值 (0-100)
-        // 检查子轮廓数量
-        // 目标扇叶 (大圆) 有不止一个子轮廓
-        // R标 (小圆) 一般没有子轮廓也没有父轮廓
+      if (circularity > (gp.circularityThreshold / 100.0)) {
         int childCount = 0;
-        if (hierarchy[i][2] != -1) { // hierarchy[i][2] 是第一个子轮廓的索引
+        if (hierarchy[i][2] != -1) { 
           int current_child_idx = hierarchy[i][2];
           while (current_child_idx != -1) {
             childCount++;
-            current_child_idx =
-                hierarchy[current_child_idx]
-                         [0]; // hierarchy[idx][0] 是下一个同级轮廓
+            current_child_idx = hierarchy[current_child_idx][0];
           }
         }
 
-        // 条件：(有多个子轮廓) 或 (没有子轮廓且没有父轮廓)
         bool is_target_candidate = childCount > 1;
         bool is_r_logo_candidate = (childCount == 0 && hierarchy[i][3] == -1);
 
@@ -267,10 +271,8 @@ identify_initial_shapes(const std::vector<std::vector<cv::Point>> &contours,
           child_counts_for_circles.push_back(childCount);
 
           cv::Moments m = cv::moments(contour);
-          if (m.m00 == 0)
-            continue; // 防止除以零错误
-          cv::Point circleCenter(static_cast<int>(m.m10 / m.m00),
-                                 static_cast<int>(m.m01 / m.m00));
+          if (m.m00 == 0) continue;
+          cv::Point circleCenter(static_cast<int>(m.m10 / m.m00), static_cast<int>(m.m01 / m.m00));
           initial_circles_result.circlePoints.push_back(circleCenter);
         }
       }
@@ -291,12 +293,10 @@ identify_initial_shapes(const std::vector<std::vector<cv::Point>> &contours,
  * @param debug_flag 是否开启调试模式
  * @return 最终确定的矩形中心点列表
  */
-// ==================== 最终方案 V40: 包含ROI可视化且无错误的 refine_rectangles_roi 函数 START ====================
-
 std::vector<cv::Point2f> refine_rectangles_roi(
     const std::vector<std::vector<cv::Point>> &all_contours,
     const std::vector<bool> &is_potential_rect_contour_flags,
-    cv::Mat &processed_image, // 非const，因为cv::Mat(roi_rect) 需要非const Mat
+    cv::Mat &processed_image,
     const std::vector<cv::Point> &initial_circle_centers,
     const std::vector<double> &initial_circle_areas,
     const std::vector<int> &initial_circle_child_counts,
@@ -310,12 +310,11 @@ std::vector<cv::Point2f> refine_rectangles_roi(
   std::vector<cv::Point2f> candidate_centers_coords;
   std::vector<cv::RotatedRect> candidate_rotated_rects;
 
-  // 收集所有初步识别的矩形轮廓
+  // 1. 收集所有初步识别的矩形轮廓
   for (int i = 0; i < all_contours.size(); ++i) {
     if (is_potential_rect_contour_flags[i]) {
       cv::Moments m = cv::moments(all_contours[i]);
-      if (m.m00 == 0)
-        continue;
+      if (m.m00 == 0) continue;
       candidate_centers_coords.push_back(
           cv::Point2f(static_cast<float>(m.m10 / m.m00),
                       static_cast<float>(m.m01 / m.m00)));
@@ -324,13 +323,9 @@ std::vector<cv::Point2f> refine_rectangles_roi(
     }
   }
 
-  if (candidate_indices.empty()) {
-    if (debug_flag)
-      std::cout << "没有初步候选矩形。" << std::endl;
-    return final_rect_centers_list; // 没有候选矩形
-  }
+  if (candidate_indices.empty()) return final_rect_centers_list;
 
-  // 如果有候选矩形，进行ROI处理和二次筛选
+  // 2. 对候选矩形进行 ROI 深入检查
   std::vector<int> roi_passed_indices;
   std::vector<cv::Point2f> roi_passed_centers;
 
@@ -340,60 +335,61 @@ std::vector<cv::Point2f> refine_rectangles_roi(
     cv::Point2f current_center = candidate_centers_coords[k];
     cv::Rect bounding_rect = rot_rect.boundingRect();
 
-    // 确保ROI在图像边界内
+    // 边界安全检查
     bounding_rect.x = std::max(0, bounding_rect.x);
     bounding_rect.y = std::max(0, bounding_rect.y);
-    bounding_rect.width =
-        std::min(bounding_rect.width, processed_image.cols - bounding_rect.x);
-    bounding_rect.height =
-        std::min(bounding_rect.height, processed_image.rows - bounding_rect.y);
+    bounding_rect.width = std::min(bounding_rect.width, processed_image.cols - bounding_rect.x);
+    bounding_rect.height = std::min(bounding_rect.height, processed_image.rows - bounding_rect.y);
 
-    if (bounding_rect.width <= 0 || bounding_rect.height <= 0) {
-      if (debug_flag)
-        std::cout << "候选矩形 " << original_contour_idx << " 的ROI无效。"
-                  << std::endl;
-      continue;
-    }
+    if (bounding_rect.width <= 0 || bounding_rect.height <= 0) continue;
 
-    cv::Mat roi =
-        processed_image(bounding_rect).clone(); // 从processedImage拷贝ROI区域
+    cv::Mat roi = processed_image(bounding_rect).clone();
     cv::Mat roi_gray, roi_binary;
 
-    if (roi.channels() == 3) {
-      cv::cvtColor(roi, roi_gray, cv::COLOR_BGR2GRAY);
-    } else if (roi.channels() == 1) {
-      roi_gray = roi.clone();
-    } else {
-      if (debug_flag)
-        std::cerr << "矩形 " << original_contour_idx
-                  << " 的ROI通道数异常: " << roi.channels() << std::endl;
-      continue;
-    }
+    if (roi.channels() == 3) cv::cvtColor(roi, roi_gray, cv::COLOR_BGR2GRAY);
+    else roi_gray = roi.clone();
     
-    // 使用固定阈值进行二值化
+    // --- 核心改进：计算 ROI 灰度标准差 ---
+    // 流水灯条（有明暗）的标准差会比普通灯条（全亮）大很多
+    cv::Scalar mean, stddev;
+    cv::meanStdDev(roi_gray, mean, stddev);
+    double brightness_stddev = stddev.val[0];
+
+    // 二值化
     cv::threshold(roi_gray, roi_binary, gp.thresholdValue_for_roi, 255, cv::THRESH_BINARY);
     
-    // 寻找ROI内的轮廓
+    // --- 核心改进：使用 RETR_LIST 检索所有内部轮廓 ---
     std::vector<std::vector<cv::Point>> roi_contours;
-    cv::findContours(roi_binary, roi_contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+    cv::findContours(roi_binary, roi_contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
 
-    // --- 智能可视化：只显示有效的前2个ROI ---
-    /*if (debug_flag && roi_contours.size() > 1 && roi_passed_indices.size() < 2) {
-        std::string winName = "ROI_Valid_" + std::to_string(roi_passed_indices.size());
+    // 统计满足最小面积的小轮廓数量 (过滤噪点)
+    int valid_inner_count = 0;
+    for (const auto& ic : roi_contours) {
+        if (cv::contourArea(ic) > 10.0) { // 内部轮廓不能太小
+            valid_inner_count++;
+        }
+    }
+
+    // 3. 调试可视化
+    if (debug_flag && valid_inner_count >= 1 && roi_passed_indices.size() < 2) {
+        std::string winName = "ROI_Check_" + std::to_string(roi_passed_indices.size());
         cv::Mat roi_show;
         cv::resize(roi_binary, roi_show, cv::Size(200, 100)); 
         cv::cvtColor(roi_show, roi_show, cv::COLOR_GRAY2BGR);
-        std::string info = "ID:" + std::to_string(original_contour_idx) + 
-                           " Cnt:" + std::to_string(roi_contours.size());
-        cv::putText(roi_show, info, cv::Point(5, 20), 
-                    cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 0), 2);
+        
+        // 在图上标出标准差和轮廓数
+        std::string info = cv::format("ID:%d Cnt:%d Std:%.1f", original_contour_idx, valid_inner_count, brightness_stddev);
+        cv::putText(roi_show, info, cv::Point(5, 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
         cv::imshow(winName, roi_show);
-    }*/
-    // ------------------------------------
+    }
 
-    // 检查ROI特征 (只要内部有超过1个小轮廓，就认为是灯条)
+    // 4. 判断准则：
+    // 条件 A: 内部轮廓数多 (典型的流水灯特征)
+    // 条件 B: 哪怕连成一块了，如果标准差足够大，说明有明暗纹理，也认为是流水灯
     bool passes_further_check = false;
-    if (roi_contours.size() > 1) { 
+    
+    // gp.roi_stddev_threshold 建议设置为 20-30 左右
+    if (valid_inner_count > 1 || brightness_stddev > 25.0) { 
       passes_further_check = true;
     }
 
@@ -401,38 +397,23 @@ std::vector<cv::Point2f> refine_rectangles_roi(
       roi_passed_indices.push_back(original_contour_idx);
       roi_passed_centers.push_back(current_center);
     } else {
-      if (debug_flag)
-        std::cout << "候选矩形 " << original_contour_idx
-                  << " 未通过ROI特征检查 (ROI内轮廓数: " << roi_contours.size()
-                  << ")。" << std::endl;
+        if(debug_flag) std::cout << "[ROI 过滤] 矩形 " << original_contour_idx << " 纹理过死或全亮。StdDev: " << brightness_stddev << std::endl;
     }
   }
   
-  // 更新候选列表为通过ROI筛选的矩形
+  // 5. 最终结果：不再执行“二选一”，返回所有通过检查的矩形
   candidate_indices = roi_passed_indices;
   candidate_centers_coords = roi_passed_centers;
 
-  if (candidate_indices.empty()) {
-    if (debug_flag)
-      std::cout << "没有矩形通过ROI筛选。" << std::endl;
-    return final_rect_centers_list;
-  }
+  if (candidate_indices.empty()) return final_rect_centers_list;
 
-  // --- 这里的逻辑我们已经修改过：不再二选一，全盘接受 ---
   final_rect_centers_list = candidate_centers_coords;
   for (int idx : candidate_indices) {
     final_selected_rect_flags[idx] = true;
   }
-  if (debug_flag) {
-    std::cout << "[INFO] " << final_rect_centers_list.size() 
-              << " 个矩形通过ROI筛选并被接受。" << std::endl;
-  }
   
   return final_rect_centers_list;
 }
-
-// ==================== 最终方案 V40: 包含ROI可视化且无错误的 refine_rectangles_roi 函数 END ====================
-
 /**
  * @brief 根据矩形中心筛选最终的两个圆形轮廓 (目标扇叶和R标)
  * @param current_keypoints
@@ -444,131 +425,109 @@ std::vector<cv::Point2f> refine_rectangles_roi(
 void select_final_circles(KeyPoints &current_keypoints,
                           const std::vector<cv::Point2f> &detected_rect_centers,
                           const std::vector<int> &circle_child_counts,
-                          bool debug_flag, GlobalParam &gp) {
+                          bool debug_flag, GlobalParam &gp,
+                          Translator &translator) {
 
-  // 如果初始圆数量不足2个，或没有检测到矩形中心，则不进行筛选
-  if (current_keypoints.circleContours.size() <= 2) {
-    if (debug_flag &&
-        current_keypoints.circleContours.size() > 0) { // 有圆但不足以筛选
-      std::cout << "初始圆数量 (" << current_keypoints.circleContours.size()
-                << ") 不足以或刚好满足两个，不执行基于矩形的筛选。"
-                << std::endl;
-    }
-    return;
-  }
-  if (detected_rect_centers.empty()) {
-    if (debug_flag) {
-      std::cout << "未检测到矩形中心，无法进行基于距离的圆筛选。保留所有 "
-                << current_keypoints.circleContours.size() << " 个初始圆。"
-                << std::endl;
-    }
+  // 1. 基本条件检查：至少要有2个候选圆
+  if (current_keypoints.circleContours.size() < 2 || detected_rect_centers.empty()) {
     return;
   }
 
-  cv::Point2f rect_center =
-      detected_rect_centers[0]; // 通常使用第一个检测到的矩形中心作为参考
+  // 2. 模式与锁定变量定义
+  bool is_big_windmill = (translator.message.status % 5 == 3);
+  static bool is_target_locked = false;
+  static cv::Point2f locked_relative_pos; // 记录上一帧锁定目标的相对坐标
 
-  // 寻找目标扇叶圆 (target)
-  // 标准: 有至少两个子轮廓, 面积在 target_circle_area_min 和
-  // target_circle_area_max 之间, 且离 rect_center 最近
-  int target_circle_idx = -1; // 在 current_keypoints.circleContours 中的索引
-  double min_dist_for_target = DBL_MAX;
+  // 如果不是大符双矩形模式，重置锁定
+  if (!is_big_windmill || detected_rect_centers.size() != 2) {
+      is_target_locked = false;
+  }
 
-  for (size_t i = 0; i < current_keypoints.circleContours.size(); ++i) {
-    double area = current_keypoints.circleAreas[i];
-    int child_count = circle_child_counts[i];
-    // 使用预设的面积范围阈值, 并检查子轮廓数量
-    if (child_count >= 2 &&
-        area > static_cast<double>(gp.target_circle_area_min) &&
-        area < static_cast<double>(gp.target_circle_area_max)) {
-      double dist = cv::norm(cv::Point2f(current_keypoints.circlePoints[i].x,
-                                         current_keypoints.circlePoints[i].y) -
-                             rect_center);
-      if (dist < min_dist_for_target) {
-        min_dist_for_target = dist;
-        target_circle_idx = static_cast<int>(i);
+  // 3. 识别 R 标 (面积最小的圆)
+  int r_idx = -1;
+  auto min_it = std::min_element(current_keypoints.circleAreas.begin(), current_keypoints.circleAreas.end());
+  r_idx = std::distance(current_keypoints.circleAreas.begin(), min_it);
+  cv::Point2f r_center = current_keypoints.circlePoints[r_idx];
+
+  int selected_blade_idx = -1;
+  cv::Point2f selected_rect_center;
+
+  // 4. 核心逻辑分支
+  if (is_big_windmill && detected_rect_centers.size() == 2) {
+      // --- 大符双目标模式：执行持久化锁定 ---
+      std::vector<int> blade_indices;
+      for (int i = 0; i < current_keypoints.circleContours.size(); ++i) {
+          if (i != r_idx) blade_indices.push_back(i);
       }
-    }
-  }
 
-  if (target_circle_idx == -1) {
-    if (debug_flag) {
-      std::cout << "未能找到满足条件(含子轮廓>=2)的目标扇叶圆 (面积范围: ["
-                << gp.target_circle_area_min << "," << gp.target_circle_area_max
-                << "])。保留所有初始圆。" << std::endl;
-    }
-    return; // 未找到符合条件的第一个圆，则不继续筛选
-  }
-
-  // 第2步: 寻找R标圆 (R-logo)
-  // 标准: 在 *剩余* 的圆中，面积在 R_area_min 和 R_area_max 之间, 且离
-  // rect_center 最近
-  int r_logo_circle_idx = -1; // 在 current_keypoints.circleContours 中的索引
-  double min_dist_for_r_logo = DBL_MAX;
-
-  for (size_t i = 0; i < current_keypoints.circleContours.size(); ++i) {
-    if (static_cast<int>(i) == target_circle_idx) {
-      continue; // 跳过已选为目标扇叶的圆
-    }
-    double area = current_keypoints.circleAreas[i];
-    // 使用预设的R标面积范围阈值
-    if (area > static_cast<double>(gp.R_area_min) &&
-        area < static_cast<double>(gp.R_area_max)) {
-      double dist = cv::norm(cv::Point2f(current_keypoints.circlePoints[i].x,
-                                         current_keypoints.circlePoints[i].y) -
-                             rect_center);
-      if (dist < min_dist_for_r_logo) {
-        min_dist_for_r_logo = dist;
-        r_logo_circle_idx = static_cast<int>(i);
+      if (!blade_indices.empty()) {
+          if (!is_target_locked) {
+              // 首次锁定：选择 Y 坐标最小的（上方）
+              double min_y = DBL_MAX;
+              for (int idx : blade_indices) {
+                  if (current_keypoints.circlePoints[idx].y < min_y) {
+                      min_y = current_keypoints.circlePoints[idx].y;
+                      selected_blade_idx = idx;
+                  }
+              }
+              if (selected_blade_idx != -1) {
+                  locked_relative_pos = cv::Point2f(current_keypoints.circlePoints[selected_blade_idx]) - r_center;
+                  is_target_locked = true;
+              }
+          } else {
+              // 持续跟踪：选择离上一帧相对坐标最近的圆
+              double min_dist = DBL_MAX;
+              for (int idx : blade_indices) {
+                  cv::Point2f current_rel = cv::Point2f(current_keypoints.circlePoints[idx]) - r_center;
+                  double dist = cv::norm(current_rel - locked_relative_pos);
+                  if (dist < min_dist) {
+                      min_dist = dist;
+                      selected_blade_idx = idx;
+                  }
+              }
+              if (selected_blade_idx != -1) {
+                  locked_relative_pos = cv::Point2f(current_keypoints.circlePoints[selected_blade_idx]) - r_center;
+              }
+          }
+          // 匹配对应矩形：选离锁定灯臂最近的那个矩形
+          cv::Point2f b_pos = current_keypoints.circlePoints[selected_blade_idx];
+          double d1 = cv::norm(detected_rect_centers[0] - b_pos);
+          double d2 = cv::norm(detected_rect_centers[1] - b_pos);
+          selected_rect_center = (d1 < d2) ? detected_rect_centers[0] : detected_rect_centers[1];
       }
-    }
+  } else {
+      // --- 小符或单目标模式：原始逻辑 ---
+      is_target_locked = false;
+      selected_rect_center = detected_rect_centers[0];
+      double min_d = DBL_MAX;
+      for (int i = 0; i < current_keypoints.circleContours.size(); ++i) {
+          if (i == r_idx) continue;
+          double d = cv::norm(cv::Point2f(current_keypoints.circlePoints[i]) - selected_rect_center);
+          if (d < min_d) {
+              min_d = d;
+              selected_blade_idx = i;
+          }
+      }
   }
 
-  if (r_logo_circle_idx == -1) {
-    if (debug_flag) {
-      std::cout << "已找到目标扇叶圆 (原索引 " << target_circle_idx
-                << ")，但未能找到满足条件的R标圆 (面积范围: [" << gp.R_area_min
-                << "," << gp.R_area_max << "])。保留所有初始圆。" << std::endl;
-    }
-    return; // 未找到符合条件的第二个圆，则不更新圆列表
-  }
+  // 5. 数据“提纯”：构建干净的 1 矩形 + 2 圆
+  if (selected_blade_idx != -1 && r_idx != -1) {
+      KeyPoints pure_keypoints;
+      pure_keypoints.rectCenters.push_back(selected_rect_center);
+      
+      // 添加选中的扇叶
+      pure_keypoints.circleContours.push_back(current_keypoints.circleContours[selected_blade_idx]);
+      pure_keypoints.circleAreas.push_back(current_keypoints.circleAreas[selected_blade_idx]);
+      pure_keypoints.circularities.push_back(current_keypoints.circularities[selected_blade_idx]);
+      pure_keypoints.circlePoints.push_back(current_keypoints.circlePoints[selected_blade_idx]);
 
-  // 如果成功找到了两个圆，则更新 current_keypoints
-  KeyPoints final_selected_circles;
-  // 添加目标扇叶圆
-  final_selected_circles.circleContours.push_back(
-      current_keypoints.circleContours[target_circle_idx]);
-  final_selected_circles.circleAreas.push_back(
-      current_keypoints.circleAreas[target_circle_idx]);
-  final_selected_circles.circularities.push_back(
-      current_keypoints.circularities[target_circle_idx]);
-  final_selected_circles.circlePoints.push_back(
-      current_keypoints.circlePoints[target_circle_idx]);
+      // 添加 R 标
+      pure_keypoints.circleContours.push_back(current_keypoints.circleContours[r_idx]);
+      pure_keypoints.circleAreas.push_back(current_keypoints.circleAreas[r_idx]);
+      pure_keypoints.circularities.push_back(current_keypoints.circularities[r_idx]);
+      pure_keypoints.circlePoints.push_back(current_keypoints.circlePoints[r_idx]);
 
-  // 添加R标圆
-  final_selected_circles.circleContours.push_back(
-      current_keypoints.circleContours[r_logo_circle_idx]);
-  final_selected_circles.circleAreas.push_back(
-      current_keypoints.circleAreas[r_logo_circle_idx]);
-  final_selected_circles.circularities.push_back(
-      current_keypoints.circularities[r_logo_circle_idx]);
-  final_selected_circles.circlePoints.push_back(
-      current_keypoints.circlePoints[r_logo_circle_idx]);
-
-  // 用筛选后的圆更新传入的KeyPoints对象
-  current_keypoints.circleContours = final_selected_circles.circleContours;
-  current_keypoints.circleAreas = final_selected_circles.circleAreas;
-  current_keypoints.circularities = final_selected_circles.circularities;
-  current_keypoints.circlePoints = final_selected_circles.circlePoints;
-
-  if (debug_flag) {
-    std::cout << "圆筛选完成。保留2个圆:\n"
-              << "  1. 目标扇叶圆 (原索引 " << target_circle_idx
-              << ", 面积: " << current_keypoints.circleAreas[0]
-              << ", 距离矩形中心: " << min_dist_for_target << ")\n"
-              << "  2. R标圆 (原索引 " << r_logo_circle_idx
-              << ", 面积: " << current_keypoints.circleAreas[1]
-              << ", 距离矩形中心: " << min_dist_for_r_logo << ")" << std::endl;
+      current_keypoints = pure_keypoints;
   }
 }
 
@@ -717,100 +676,67 @@ void visualize_keypoints(
 KeyPoints detect_key_points(
     const std::vector<std::vector<cv::Point>> &contours,
     const std::vector<cv::Vec4i> &hierarchy,
-    cv::Mat &processedImage, // 注意：refine_rectangles_roi 需要非const Mat
-    WMBlade &blade, GlobalParam &gp) { // blade 参数保留，但在此实现中未使用
+    cv::Mat &processedImage, 
+    WMBlade &blade, 
+    GlobalParam &gp,
+    Translator &translator) { // 新增了参数
 
   KeyPoints final_result;                  // 最终返回的结果
   std::vector<bool> initial_is_rect_flags; // 标记初步识别的矩形轮廓
   std::vector<bool> final_selected_rect_flags; // 标记最终选定的矩形轮廓
   std::vector<int> initial_circle_child_counts;
 
-  // 识别初始的圆形候选和标记潜在的矩形轮廓
-  //    - initial_potential_circles.circle* 字段会被填充
-  //    - initial_is_rect_flags 会被填充
+  // 1. 识别初始的圆形候选和标记潜在的矩形轮廓
   KeyPoints initial_potential_circles =
       identify_initial_shapes(contours, hierarchy, initial_is_rect_flags, gp,
                               initial_circle_child_counts);
+  
   if (gp.debug) {
-    std::cout << "初始识别到 "
-              << initial_potential_circles.circleContours.size()
-              << " 个候选圆。" << std::endl;
-    int potential_rect_count = 0;
-    for (bool flag : initial_is_rect_flags)
-      if (flag)
-        potential_rect_count++;
-    std::cout << "初始识别到 " << potential_rect_count << " 个候选矩形。"
-              << std::endl;
+    std::cout << "初始识别到 " << initial_potential_circles.circleContours.size() << " 个候选圆。" << std::endl;
   }
 
-  // 筛选矩形轮廓 (流水灯条)
-  //    - refine_rectangles_roi 会返回最终矩形的中心点列表
-  //    - final_selected_rect_flags 会被填充，标记哪些原始轮廓是最终选择的矩形
+  // 2. 筛选矩形轮廓 (此时返回 1 或 2 个矩形)
   final_result.rectCenters = refine_rectangles_roi(
       contours,
-      initial_is_rect_flags,                  // 输入：初步矩形标记
-      processedImage,                         // 输入：用于ROI的图像
-      initial_potential_circles.circlePoints, // 输入：初步圆心用于参考
-      initial_potential_circles.circleAreas, // 输入：初步圆面积用于参考
+      initial_is_rect_flags,                  
+      processedImage,                         
+      initial_potential_circles.circlePoints, 
+      initial_potential_circles.circleAreas, 
       initial_circle_child_counts,
-      final_selected_rect_flags, // 输出：最终矩形标记
-      gp.debug, gp               // 输入：调试开关
+      final_selected_rect_flags, 
+      gp.debug, gp               
   );
-  if (gp.debug) {
-    std::cout << "矩形筛选后，确定 " << final_result.rectCenters.size()
-              << " 个矩形。" << std::endl;
-  }
 
-  // 从初始圆形候选中筛选最终的目标圆和R标圆
-  //    - 首先，将所有初步识别的圆信息复制到 final_result 中
+  // 3. 将初始圆信息复制到结果中，准备进入最后的 select_final_circles
   final_result.circleContours = initial_potential_circles.circleContours;
   final_result.circleAreas = initial_potential_circles.circleAreas;
   final_result.circularities = initial_potential_circles.circularities;
   final_result.circlePoints = initial_potential_circles.circlePoints;
 
-  //    - 然后，select_final_circles 会就地修改 final_result 中的圆信息，
-  //      只保留符合条件的目标扇叶和R标（如果能找到的话）
+  // 4. 调用通用的筛选函数 (处理锁定、大小符逻辑、2圆1矩形提纯)
+  // 这里传入了 translator
   select_final_circles(
-      final_result, // 输入/输出：包含初始圆，将被修改为最终圆
-      final_result.rectCenters, // 输入：已确定的矩形中心作为参考
-      initial_circle_child_counts, // 输入: 各个圆的子轮廓数
-      gp.debug, gp                 // 输入：调试开关
+      final_result, 
+      final_result.rectCenters, 
+      initial_circle_child_counts, 
+      gp.debug, 
+      gp,
+      translator 
   );
+
   if (gp.debug) {
-    std::cout << "圆筛选后，保留 " << final_result.circleContours.size()
-              << " 个圆。" << std::endl;
+    std::cout << "最终筛选后，保留 " << final_result.circleContours.size() << " 个圆。" << std::endl;
   }
 
-  // 可视化最终结果 (如果开启debug模式)
+  // 5. 可视化最终结果
   if (gp.debug) {
-    cv::Mat visual_image =
-        processedImage.clone(); // 在克隆图像上绘制，不修改原始processedImage
-    visualize_keypoints(visual_image,             // 绘制目标图像
-                        final_result,             // 最终结果
-                        contours,                 // 所有原始轮廓
-                        initial_is_rect_flags,    // 初步矩形标记
-                        final_selected_rect_flags // 最终矩形标记
-    );
+    cv::Mat visual_image = processedImage.clone(); 
+    visualize_keypoints(visual_image, final_result, contours, initial_is_rect_flags, final_selected_rect_flags);
   }
 
   return final_result;
 }
 
-
-// ==================== 最终方案 V48: 干净、安全且保留 isValid 的版本 START ====================
-
-// (辅助函数 angleDistance 和 angleDiffSigned 保持不变)
-double angleDistance(double a1, double a2) {
-    double diff = std::abs(a1 - a2);
-    if (diff > M_PI) diff = 2 * M_PI - diff;
-    return diff;
-}
-double angleDiffSigned(double a1, double a2) {
-    double diff = a1 - a2;
-    if (diff > M_PI) diff -= 2 * M_PI;
-    if (diff < -M_PI) diff += 2 * M_PI;
-    return diff;
-}
 
 DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
                        GlobalParam &gp, int is_blue, Translator &translator) {
@@ -818,175 +744,106 @@ DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
   DetectionResult result;
   auto start_time = high_resolution_clock::now();
 
+  // 1. 预处理
   Mat final_mask = preprocess(inputImage, gp, is_blue, translator);
-  if (gp.debug) {
-      cv::imshow("Final Mask", final_mask); // 保留 final_mask 显示
-  }
-  Mat processedImage = inputImage.clone();
+  if (gp.debug) imshow("final_mask", final_mask);
 
+  // 2. 轮廓提取
   vector<vector<Point>> contours;
   vector<Vec4i> hierarchy;
   findContours(final_mask, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
 
+  Mat processedImage = inputImage.clone();
+  
+  // --- 调试画布准备：放大 1.5 倍 ---
+  Mat debugCanvas;
+  const float scale = 1.5;
+  if (gp.debug) {
+      cv::resize(inputImage, debugCanvas, cv::Size(), scale, scale);
+  }
+
+  // 3. 基础形状识别
   std::vector<bool> initial_is_rect_flags;
   std::vector<int> initial_circle_child_counts;
-  KeyPoints all_keyPoints = identify_initial_shapes(contours, hierarchy, initial_is_rect_flags, gp, initial_circle_child_counts);
+  KeyPoints keyPoints = identify_initial_shapes(contours, hierarchy, initial_is_rect_flags, gp, initial_circle_child_counts);
 
   std::vector<bool> final_selected_rect_flags;
-  all_keyPoints.rectCenters = refine_rectangles_roi(contours, initial_is_rect_flags, processedImage, 
-                                                    all_keyPoints.circlePoints, all_keyPoints.circleAreas, 
-                                                    initial_circle_child_counts, final_selected_rect_flags, gp.debug, gp);
-  
-  bool is_big_windmill_mode = (translator.message.status % 5 == 3);
-  KeyPoints final_keyPoints;
+  keyPoints.rectCenters = refine_rectangles_roi(contours, initial_is_rect_flags, processedImage, 
+                                                keyPoints.circlePoints, keyPoints.circleAreas, 
+                                                initial_circle_child_counts, final_selected_rect_flags, gp.debug, gp);
 
-  static bool is_target_locked = false;
-  static double locked_angle = 0.0; 
-
-  if (!is_big_windmill_mode || all_keyPoints.rectCenters.size() != 2) {
-      is_target_locked = false;
-  }
-
-  if (is_big_windmill_mode && all_keyPoints.rectCenters.size() == 2 && all_keyPoints.circleContours.size() >= 2) {
-      int r_idx = -1;
-      vector<size_t> blade_candidate_indices;
-      if (!all_keyPoints.circleAreas.empty()){
-          auto min_it = std::min_element(all_keyPoints.circleAreas.begin(), all_keyPoints.circleAreas.end());
-          r_idx = std::distance(all_keyPoints.circleAreas.begin(), min_it);
-      }
-      for (size_t i = 0; i < all_keyPoints.circleContours.size(); ++i) {
-          if ((int)i != r_idx) blade_candidate_indices.push_back(i);
-      }
-
-      int selected_blade_idx = -1;
-
-      if (r_idx != -1 && !blade_candidate_indices.empty()) {
-          cv::Point2f r_center(all_keyPoints.circlePoints[r_idx]);
-
-          if (!is_target_locked) {
-              double min_angle_val = DBL_MAX;
-              for (size_t idx : blade_candidate_indices) {
-                  double angle = atan2(all_keyPoints.circlePoints[idx].y - r_center.y, 
-                                       all_keyPoints.circlePoints[idx].x - r_center.x);
-                  if (angle < min_angle_val) {
-                      min_angle_val = angle;
-                      selected_blade_idx = idx;
-                  }
-              }
-              if (selected_blade_idx != -1) {
-                  locked_angle = min_angle_val;
-                  is_target_locked = true;
-              }
-          } else {
-              double min_dist = DBL_MAX;
-              for (size_t idx : blade_candidate_indices) {
-                  double current_angle = atan2(all_keyPoints.circlePoints[idx].y - r_center.y, 
-                                               all_keyPoints.circlePoints[idx].x - r_center.x);
-                  double dist = angleDistance(current_angle, locked_angle);
-                  if (dist < min_dist) {
-                      min_dist = dist;
-                      selected_blade_idx = idx;
-                  }
-              }
-              if (selected_blade_idx != -1 && min_dist < 0.8) {
-                  locked_angle = atan2(all_keyPoints.circlePoints[selected_blade_idx].y - r_center.y, 
-                                       all_keyPoints.circlePoints[selected_blade_idx].x - r_center.x);
-              } else {
-                  is_target_locked = false;
-                  selected_blade_idx = -1;
-              }
-          }
+  // --- 在筛选前可视化原始数据 ---
+  if (gp.debug) {
+      // 提取当前的 R 标作为调试坐标系原点 (假设面积最小)
+      cv::Point2f r_dbg(0,0);
+      if(!keyPoints.circleAreas.empty()){
+          int r_idx_dbg = std::distance(keyPoints.circleAreas.begin(), std::min_element(keyPoints.circleAreas.begin(), keyPoints.circleAreas.end()));
+          r_dbg = keyPoints.circlePoints[r_idx_dbg];
+          cv::circle(debugCanvas, r_dbg * scale, 15, cv::Scalar(255, 0, 0), 2); // 蓝色圈 R
       }
       
-      if (selected_blade_idx != -1 && r_idx != -1) {
-          cv::Point2f selected_blade_center(all_keyPoints.circlePoints[selected_blade_idx]);
-          cv::Point2f selected_rect_center = all_keyPoints.rectCenters[0];
-          if (all_keyPoints.rectCenters.size() > 1) {
-             double d1 = cv::norm(all_keyPoints.rectCenters[0] - selected_blade_center);
-             double d2 = cv::norm(all_keyPoints.rectCenters[1] - selected_blade_center);
-             selected_rect_center = (d1 < d2) ? all_keyPoints.rectCenters[0] : all_keyPoints.rectCenters[1];
-          }
-          final_keyPoints.rectCenters.push_back(selected_rect_center);
-          final_keyPoints.circleContours.push_back(all_keyPoints.circleContours[selected_blade_idx]);
-          final_keyPoints.circlePoints.push_back(all_keyPoints.circlePoints[selected_blade_idx]);
-          final_keyPoints.circleAreas.push_back(all_keyPoints.circleAreas[selected_blade_idx]);
-          final_keyPoints.circularities.push_back(all_keyPoints.circularities[selected_blade_idx]);
-          final_keyPoints.circleContours.push_back(all_keyPoints.circleContours[r_idx]);
-          final_keyPoints.circlePoints.push_back(all_keyPoints.circlePoints[r_idx]);
-          final_keyPoints.circleAreas.push_back(all_keyPoints.circleAreas[r_idx]);
-          final_keyPoints.circularities.push_back(all_keyPoints.circularities[r_idx]);
-      } else {
-          final_keyPoints.rectCenters.clear(); 
-      }
-  } else {
-      is_target_locked = false;
-      final_keyPoints = all_keyPoints;
-      select_final_circles(final_keyPoints, final_keyPoints.rectCenters, initial_circle_child_counts, gp.debug, gp);
-      if (final_keyPoints.rectCenters.size() > 1 && !final_keyPoints.circlePoints.empty()) {
-          cv::Point2f ref_circle = final_keyPoints.circlePoints[0];
-          cv::Point2f final_rect;
-          double min_dist = DBL_MAX;
-          for(const auto& r : final_keyPoints.rectCenters) {
-              double current_dist = cv::norm(r - ref_circle);
-              if (current_dist < min_dist) { min_dist = current_dist; final_rect = r; }
-          }
-          final_keyPoints.rectCenters.clear();
-          final_keyPoints.rectCenters.push_back(final_rect);
+      for(size_t i=0; i<keyPoints.circlePoints.size(); ++i) {
+          cv::Point2f p = cv::Point2f(keyPoints.circlePoints[i]);
+          float ang = atan2(p.y - r_dbg.y, p.x - r_dbg.x) * 180.0 / CV_PI;
+          std::string info = cv::format("C%zu:%.1fdeg", i, ang);
+          cv::putText(debugCanvas, info, p * scale, cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
+          cv::circle(debugCanvas, p * scale, 5, cv::Scalar(0, 0, 255), -1);
       }
   }
-    
-  // --- 恢复 isValid 检查 ---
-  if (!final_keyPoints.isValid()) {
-    if (gp.debug) std::cout << "[失败] 最终构建的keyPoints无效! 圆: " << final_keyPoints.circleContours.size() << ", 矩形: " << final_keyPoints.rectCenters.size() << std::endl;
+
+  // 4. 调用核心筛选逻辑 (执行锁定与提纯)
+  select_final_circles(keyPoints, keyPoints.rectCenters, initial_circle_child_counts, gp.debug, gp, translator);
+
+  // 5. 有效性检查
+  if (!keyPoints.isValid()) {
+    if (gp.debug) {
+        std::cout << "[FAIL] keyPoints.isValid() False. Circles: " << keyPoints.circleContours.size() << std::endl;
+        cv::imshow("Debug Canvas", debugCanvas);
+    }
     result.processedImage = processedImage;
     return result;
   }
-  
-  vector<size_t> indices(final_keyPoints.circleContours.size());
+
+  // 6. 确定点位顺序 (indices[0]灯臂, indices[1]R标)
+  vector<size_t> indices(keyPoints.circleContours.size());
   iota(indices.begin(), indices.end(), 0);
-  sort(indices.begin(), indices.end(), [&final_keyPoints](size_t i1, size_t i2) {
-    return final_keyPoints.circleAreas[i1] > final_keyPoints.circleAreas[i2];
+  sort(indices.begin(), indices.end(), [&keyPoints](size_t i1, size_t i2) {
+    return keyPoints.circleAreas[i1] > keyPoints.circleAreas[i2];
   });
-    
-  // --- 增加绝对安全检查，防止崩溃 ---
-  if (indices.size() < 2) { 
-    if (gp.debug) std::cout << "[ERROR] 排序后索引数量不足2，无法继续。" << std::endl;
-    result.processedImage = processedImage;
-    return result; 
-  }
-    
-  blade.apex.push_back(final_keyPoints.circlePoints[indices[1]]);
-  blade.apex.push_back(final_keyPoints.circlePoints[indices[0]]);
+
+  if (indices.size() < 2) return result;
+
+  // 7. 填充 PNP 数据
+  blade.apex.push_back(keyPoints.circlePoints[indices[1]]); // R
+  blade.apex.push_back(keyPoints.circlePoints[indices[0]]); // 灯臂
   
-  Moments m1 = moments(final_keyPoints.circleContours[indices[0]]);
-  cv::RotatedRect ellipse = cv::fitEllipse(final_keyPoints.circleContours[indices[0]]);
+  cv::RotatedRect ellipse = cv::fitEllipse(keyPoints.circleContours[indices[0]]);
   cv::Point2f center1(ellipse.center.x, ellipse.center.y);
-  double radius = sqrt(final_keyPoints.circleAreas[indices[0]] / CV_PI);
-    
-  // --- 增加对矩形数量的绝对安全检查 ---
-  if (final_keyPoints.rectCenters.empty()) {
-      if (gp.debug) std::cout << "[ERROR] 没有矩形中心可用于交点计算。" << std::endl;
-      result.processedImage = processedImage;
-      return result;
+  double radius = sqrt(keyPoints.circleAreas[indices[0]] / CV_PI);
+
+  result.intersections = findIntersectionsByEquation(center1, keyPoints.rectCenters[0], radius, ellipse, processedImage, gp, blade);
+
+  // 8. 绘制锁定结果可视化
+  if (gp.debug) {
+      cv::Point2f locked_p = cv::Point2f(keyPoints.circlePoints[indices[0]]);
+      cv::circle(debugCanvas, locked_p * scale, 40, cv::Scalar(0, 255, 255), 3); // 黄色大圈 LOCKED
+      cv::putText(debugCanvas, "LOCKED TARGET", locked_p * scale + cv::Point2f(45, 0), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 255), 2);
+      
+      // 画出 R 到目标的连线
+      cv::Point2f r_p = cv::Point2f(keyPoints.circlePoints[indices[1]]);
+      cv::line(debugCanvas, r_p * scale, locked_p * scale, cv::Scalar(0, 255, 0), 2);
+      
+      cv::imshow("Debug Canvas", debugCanvas);
   }
 
-  result.intersections =
-      findIntersectionsByEquation(center1, final_keyPoints.rectCenters[0], radius,
-                                  ellipse, processedImage, gp, blade);
-    
-  if (gp.debug && is_target_locked) {
-      cv::Point locked_blade_pos = final_keyPoints.circlePoints[indices[0]];
-      cv::circle(processedImage, locked_blade_pos, 30, cv::Scalar(0, 0, 255), 3);
-      cv::putText(processedImage, "LOCKED", locked_blade_pos + cv::Point(35,0), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0,0,255), 2);
-  }
-    
   result.processedImage = processedImage;
-  blade.apex.push_back(final_keyPoints.rectCenters[0]);
+  auto end_time = high_resolution_clock::now();
+  result.processingTime = duration_cast<milliseconds>(end_time - start_time).count();
+  blade.apex.push_back(keyPoints.rectCenters[0]);
 
   return result;
 }
 
-// ==================== 最终方案 V48: 干净、安全且保留 isValid 的版本 END ======================
 // 通过方程求解交点的方法
 vector<Point> findIntersectionsByEquation(const Point &center1,
                                           const Point &center2, double radius,
