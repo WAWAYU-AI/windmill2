@@ -219,7 +219,8 @@ void *OperationFunction(void *arg)
             empty_frame_count = 0;
         }
         // 自瞄模式
-        //translator.message.status = 3; 
+        translator.message.r1 = 23.5;
+        translator.message.status = 3; 
         translator.message.is_far = 0;
         if (translator.message.status == 99)
             abort();
@@ -248,7 +249,7 @@ void *OperationFunction(void *arg)
             pic = WMI.getImg0(); 
             cv::putText(pic,"FPS: " + to_string(fps), cv::Point(1000, 50), cv::FONT_HERSHEY_SIMPLEX, 1.5, cv::Scalar(0, 255, 0), 2); // 改为绿色以便区分
             // 终端输出
-            printf("FPS: %d  \tLatency: %.3f ms | Status: %u\n", fps, translator.message.latency, (unsigned int)translator.message.status);
+            printf("FPS: %d  \tLatency: %.3f ms | Status: %u \t弹速：%3f\n", fps, translator.message.latency, (unsigned int)translator.message.status, translator.message.r1);
 #endif
         }
 

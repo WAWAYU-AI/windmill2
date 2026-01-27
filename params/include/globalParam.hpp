@@ -382,7 +382,7 @@ struct GlobalParam
     int R_area_min = 800;
     int R_area_max = 2200;
   
-    int length_width_ratio_threshold = 3;
+    float length_width_ratio_threshold = 3;
     int minContourArea = 200;
   
     //===============打符Identify==============//
