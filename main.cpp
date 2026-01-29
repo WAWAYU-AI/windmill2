@@ -239,6 +239,18 @@ void *OperationFunction(void *arg)
             cv::putText(pic,"FPS: " + to_string(fps), cv::Point(1000, 50), cv::FONT_HERSHEY_SIMPLEX, 1.5, cv::Scalar(255, 255, 255), 2);
             // printf("FPS: %d  \tLatency: %.3f ms \tStatus: %u \tYaw: %.3f \tRoll: %.3f\n", fps, translator.message.latency, (unsigned int)translator.message.status, translator.message.yaw);
 #endif
+#ifdef DEBUGMODE
+        UI.receive_pic(pic);
+        UI.windowsManager(key, debug_t);
+        cv::Mat tmp;
+        cv::resize(pic, tmp, cv::Size((int)pic.size[1] * gp.resize, (int)pic.size[0] * gp.resize), cv::INTER_LINEAR);
+        cv::imshow("aimauto__", tmp);
+        key = cv::waitKey(debug_t);
+        if (key == ' ')
+            key = cv::waitKey(0);
+        if (key == 27 || key == 'q')
+            exit(0);
+#endif
         } else {
             // translator.message.is_far = 0;
             WMI.identifyWM(pic, translator);
@@ -252,19 +264,6 @@ void *OperationFunction(void *arg)
             printf("FPS: %d  \tLatency: %.3f ms | Status: %u \t弹速：%3f\n", fps, translator.message.latency, (unsigned int)translator.message.status, translator.message.r1);
 #endif
         }
-
-#ifdef DEBUGMODE
-        UI.receive_pic(pic);
-        UI.windowsManager(key, debug_t);
-        cv::Mat tmp;
-        cv::resize(pic, tmp, cv::Size((int)pic.size[1] * gp.resize, (int)pic.size[0] * gp.resize), cv::INTER_LINEAR);
-        cv::imshow("aimauto__", tmp);
-        key = cv::waitKey(debug_t);
-        if (key == ' ')
-            key = cv::waitKey(0);
-        if (key == 27 || key == 'q')
-            exit(0);
-#endif
 
 #ifdef SHOW_FPS
         frame_count++;

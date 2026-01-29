@@ -11,7 +11,7 @@ dilationSize: 9      # 膨胀核大小
 dilationSize_1: 5
 erosionSize: 5       # 腐蚀核大小
 erosionSize_1: 5
-thresholdValue: 130  # 二值化阈值
+thresholdValue: 125  # 二值化阈值
 thresholdValueBlue: 100  # 二值化阈值
 thresholdValue_for_roi: 140
 thresholdValue_1: 82
@@ -38,16 +38,16 @@ d_RP2: 0.825
 gap: 0
 gap_control: 1
 
-tx_cam2cloud: -0.26
-tx_cam2cloud_1: -0.26 # 远距离也使用相同值
+tx_cam2cloud: 0.25
+tx_cam2cloud_1: -0.254
 # 0
 # ty_cam2cloud: -1.42
-ty_cam2cloud: 0.355
-ty_cam2cloud_1: 0.355   # 远距离也使用相同值
+ty_cam2cloud: -0.20
+ty_cam2cloud_1: -0.38
 # -1.5
 # I0514 23:24:51.224388 234896 MessageManager.cpp:225] 当前crc: 0
 tz_cam2cloud: -0.4208
 tz_cam2cloud_1: -0.4208   # 远距离也使用相同值
 # -0.2
 
-delta_t: -0.25
+delta_t: -0.01

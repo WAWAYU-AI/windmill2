@@ -328,7 +328,11 @@ void WMIdentify::identifyWM(cv::Mat &input_img, Translator &translator) {
     if (this->distance < 4 || this->distance > 12) {
       translator.message.armor_flag = 10;
       std::cout << "distance wrong!" << std::endl;
+      std::cout << "distance :" << this->distance << std::endl;
       return;
+    }
+    else{
+      std::cout << "distance :" << this->distance << std::endl;
     }
 
     cv::Point3f Top_world = cv::Point3f(this->gp->d_RP2, 0, 0);
