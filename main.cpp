@@ -199,6 +199,7 @@ void *OperationFunction(void *arg)
 #endif
         camera.set_param_mult(gp);
         camera.get_pic(&pic, gp);
+        cv::imshow("raw", pic);
 #else
         MManager.getFrame(pic, translator);
 #endif

@@ -531,7 +531,7 @@ void WMIdentify::identifyWM(cv::Mat &input_img, Translator &translator) {
     // translator.message.v_z = 10.0;
     std::cout << translator.message.armor_flag << std::endl;
     std::cout << "识别失败，不预测" << std::endl;
-    std::cout << "blade.apex.size() :" << blade.apex.size() << std::endl;
+    //std::cout << "blade.apex.size() :" << blade.apex.size() << std::endl;
   }
 }
 

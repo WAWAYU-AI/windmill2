@@ -50,4 +50,4 @@ tz_cam2cloud: -0.4208
 tz_cam2cloud_1: -0.4208   # 远距离也使用相同值
 # -0.2
 
-delta_t: -0.01
+delta_t: 0.05

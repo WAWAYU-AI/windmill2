@@ -104,7 +104,8 @@ private:
 public:
   WMPredict(GlobalParam &gp);
   int StartPredict(Translator &translator, GlobalParam &gp, WMIdentify &WMI);
-
+  void CeresFittingNewRule(std::deque<double> x_data, std::deque<double> y_data);
+  void DrawVelocityCurve(const std::deque<double>& velocity_list, const std::deque<double>& time_list, cv::Mat& canvas);
   void thetaAmend(double &theta);
   int BulletSpeedProcess(Translator &translator);
   void UpdateData(WMIdentify &WMI, Translator translator);

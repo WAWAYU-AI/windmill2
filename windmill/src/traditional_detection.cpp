@@ -233,19 +233,19 @@ KeyPoints identify_initial_shapes(const std::vector<std::vector<cv::Point>> &con
               is_potential_rect_contour_flags[i] = true;
           } else {
               // --- 修正后的打印逻辑 ---
-              if (gp.debug && area > 500) {
-                  printf("[矩形初步过滤] ID:%d 面积:%.0f 比例:%.2f(需>%f) 矩形度:%.2f(需>0.7) 顶点:%zu(需3-6)\n", 
-                         i, area, aspectRatio, gp.length_width_ratio_threshold, extent, approx.size());
-              }
+          //if (gp.debug && area > 500) {
+          //        printf("[矩形初步过滤] ID:%d 面积:%.0f 比例:%.2f(需>%f) 矩形度:%.2f(需>0.7) 顶点:%zu(需3-6)\n", 
+          //               i, area, aspectRatio, gp.length_width_ratio_threshold, extent, approx.size());
+          //  }
           }
         }
-        else{
-          if (gp.debug && area > 500) {
-              printf("[矩形初步过滤]长宽比 %.2f 太小(需>%f)\n", aspectRatio, gp.length_width_ratio_threshold);
-          }
-        }
-      } else if (gp.debug && area > 500) {
-          printf("[矩形初步过滤] 面积 %.0f 太小(需>%d)\n", area, gp.rect_area_threshold);
+        //else{
+        //  if (gp.debug && area > 500) {
+        //      printf("[矩形初步过滤]长宽比 %.2f 太小(需>%f)\n", aspectRatio, gp.length_width_ratio_threshold);
+        //  }
+        //}
+      //} else if (gp.debug && area > 500) {
+      //    printf("[矩形初步过滤] 面积 %.0f 太小(需>%d)\n", area, gp.rect_area_threshold);
       }
     }
 
@@ -330,23 +330,59 @@ std::vector<cv::Point2f> refine_rectangles_roi(
 
   for (size_t k = 0; k < candidate_indices.size(); ++k) {
     int idx = candidate_indices[k];
-    cv::Rect roi_rect = cv::boundingRect(all_contours[idx]);
     
-    // 边界安全
+    // 获取ROI
+    cv::Rect roi_rect = cv::boundingRect(all_contours[idx]);
     roi_rect.x = std::max(0, roi_rect.x); roi_rect.y = std::max(0, roi_rect.y);
     roi_rect.width = std::min(roi_rect.width, processed_image.cols - roi_rect.x);
     roi_rect.height = std::min(roi_rect.height, processed_image.rows - roi_rect.y);
+    if (roi_rect.width <= 0 || roi_rect.height <= 0) continue;
 
-    cv::Mat roi = processed_image(roi_rect).clone();
-    cv::Mat roi_gray, roi_bin;
-    if (roi.channels() == 3) cv::cvtColor(roi, roi_gray, cv::COLOR_BGR2GRAY);
-    else roi_gray = roi.clone();
+    cv::Mat roi_gray;
+    if (processed_image(roi_rect).channels() == 3) 
+        cv::cvtColor(processed_image(roi_rect), roi_gray, cv::COLOR_BGR2GRAY);
+    else 
+        roi_gray = processed_image(roi_rect).clone();
 
-    // 计算标准差
+    // ==========================================================
+    // [核心修改] 使用“原汁原味”的轮廓创建完美贴合的掩码
+    // ==========================================================
+    
+    // 1. 创建全黑掩码
+    cv::Mat mask = cv::Mat::zeros(roi_gray.size(), CV_8UC1);
+
+    // 2. 将全图坐标系下的轮廓，平移转换到 ROI 小图坐标系下
+    //    方法：直接创建一个包含单个轮廓的 vector，每个点减去 ROI 左上角坐标
+    std::vector<cv::Point> offset_contour;
+    // 使用 reserve 稍微优化一点性能，避免多次内存分配
+    offset_contour.reserve(all_contours[idx].size()); 
+    cv::Point tl = roi_rect.tl(); // 矩形左上角坐标
+    
+    for (const auto& p : all_contours[idx]) {
+        offset_contour.push_back(p - tl); // 坐标平移
+    }
+
+    // 3. 在掩码上画出实心的白色轮廓
+    //    thickness = -1 (cv::FILLED) 表示填充内部
+    std::vector<std::vector<cv::Point>> contours_to_draw = { offset_contour };
+    cv::drawContours(mask, contours_to_draw, 0, cv::Scalar(255), -1);
+
+    // [可选可视化] 看看掩码是否真的完美贴合
+    //if (debug_flag) {
+    //    cv::imshow("Perfect Mask ID:" + std::to_string(idx), mask);
+    //    cv::Mat masked_roi_gray;
+    //    roi_gray.copyTo(masked_roi_gray, mask);
+    //    cv::imshow("Perfectly Masked ROI ID:" + std::to_string(idx), masked_roi_gray);
+    //}
+
+    // 4. 带掩码计算标准差
     cv::Scalar mean, stddev;
-    cv::meanStdDev(roi_gray, mean, stddev);
+    cv::meanStdDev(roi_gray, mean, stddev, mask);
     double br_std = stddev.val[0];
+    std::cout << "矩形ID:" << idx << " 标准差:" << br_std << std::endl;
+    // ==========================================================
 
+    cv::Mat roi_bin;
     cv::threshold(roi_gray, roi_bin, gp.thresholdValue_for_roi, 255, cv::THRESH_BINARY);
     std::vector<std::vector<cv::Point>> roi_cnts;
     cv::findContours(roi_bin, roi_cnts, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
@@ -354,14 +390,12 @@ std::vector<cv::Point2f> refine_rectangles_roi(
     int inner_cnt = 0;
     for (const auto& c : roi_cnts) if (cv::contourArea(c) > 5.0) inner_cnt++;
 
-    // 判断：轮廓数>1 或 标准差足够大 (有纹理)
-    if (inner_cnt > 1 || br_std > 15.0) {
+    if (inner_cnt > 8 || br_std < 0.0) {
       final_rect_centers_list.push_back(candidate_centers_coords[k]);
       final_selected_rect_flags[idx] = true;
     } else {
-      // --- 增加打印：为什么 ROI 检查没过 ---
       if (debug_flag) {
-          printf("[矩形ROI过滤] ID:%d 内部轮廓:%d(需>1) 标准差:%.1f(需>20.0)\n", idx, inner_cnt, br_std);
+          printf("[矩形ROI过滤] ID:%d 内部轮廓:%d(需>8) 标准差:%.1f(需>20.0)\n", idx, inner_cnt, br_std);
       }
     }
   }
@@ -446,7 +480,7 @@ void select_final_circles(KeyPoints &current_keypoints,
           return;
       }
   }
-  std::cout << "选中扇叶 ID:" << selected_blade_idx << std::endl;
+  //std::cout << "选中扇叶 ID:" << selected_blade_idx << std::endl;
   // 5. 第三步：找到离这个扇叶最近的矩形 (selected_rect_center)
   cv::Point2f b_pos = cv::Point2f(current_keypoints.circlePoints[selected_blade_idx]);
   cv::Point2f selected_rect_center;
@@ -458,8 +492,8 @@ void select_final_circles(KeyPoints &current_keypoints,
           selected_rect_center = rect_p;
       }
       else if(d >= 50.0){
-        std::cout << "矩形离扇叶太远 距离:" << d << std::endl;
-        std::cout <<"当前最小距离:" << min_rect_dist << std::endl;
+        //std::cout << "矩形离扇叶太远 距离:" << d << std::endl;
+        //std::cout <<"当前最小距离:" << min_rect_dist << std::endl;
       }
   }
   std::cout << "最小距离:" << min_rect_dist << std::endl;
@@ -469,7 +503,7 @@ void select_final_circles(KeyPoints &current_keypoints,
   double min_r_dist = DBL_MAX;
   for (int i = 0; i < (int)current_keypoints.circleContours.size(); ++i) {
       if (i == selected_blade_idx) {
-        std:;cout << "跳过扇叶自己 ID:" << i << std::endl;
+        //std:;cout << "跳过扇叶自己 ID:" << i << std::endl;
         continue;
       }; // 不能是扇叶自己
       
@@ -486,6 +520,9 @@ void select_final_circles(KeyPoints &current_keypoints,
         std::cout << "R标面积不符 ID:" << i << " 面积:" << area << std::endl;
       }
   }
+  std::cout << "选中R标 面积：" 
+            << (selected_r_idx != -1 ? std::to_string(current_keypoints.circleAreas[selected_r_idx]) : "无") 
+            << std::endl;
 
   // 7. 最终提纯数据
   if (selected_blade_idx != -1 && selected_r_idx != -1) {
@@ -907,7 +944,6 @@ DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
     // 确保 detect 函数返回的是画完图的图像！
     result.processedImage = image_to_draw_on;
   }
-  // ====================
 
   auto end_time = high_resolution_clock::now();
   result.processingTime = duration_cast<milliseconds>(end_time - start_time).count();

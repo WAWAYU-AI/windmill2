@@ -18,7 +18,7 @@
 #include "opencv2/highgui.hpp"
 #include "opencv2/imgproc/types_c.h"
 // #include <angular_velocity_fitter.hpp>
-//  #include <ceres/ceres.h>
+#include <ceres/ceres.h>
 #include <chrono>
 #include <complex>
 #include <deque>
@@ -94,6 +94,169 @@ WMPredict::WMPredict(GlobalParam &gp) {
   this->Fire_time = 0;
 }
 
+struct EnergyCostFunctionNewRule {
+    EnergyCostFunctionNewRule(double t, double observed_v)
+        : t_(t), observed_v_(observed_v) {}
+
+    template <typename T>
+    bool operator()(const T* const params, T* residual) const {
+        // params 数组现在只包含 3 个待优化参数: {a, w, phi}
+        const T& a = params[0];
+        const T& w = params[1];
+        const T& phi = params[2];
+
+        // 根据规则 b = 2.090 - a 计算 b
+        T b = T(2.090) - a;
+
+        // 根据新模型计算预测的角速度
+        T predicted_v = a * ceres::sin(w * T(t_) + phi) + b;
+
+        // 残差 = 观测值 - 预测值
+        residual[0] = T(observed_v_) - predicted_v;
+        
+        return true;
+    }
+
+private:
+    const double t_;
+    const double observed_v_;
+};
+
+void WMPredict::CeresFittingNewRule(std::deque<double> x_data, std::deque<double> y_data) {
+    // 1. 设置初始值
+    double params[3] = {this->A0, this->w_big, this->fai};
+
+    // 2. 构建问题
+    ceres::Problem problem;
+
+    // ==================== [核心改动] 定义鲁棒损失函数 ====================
+    // CauchyLoss(0.1) 会自动降低那些残差大于 0.1 的数据点的权重
+    // 这意味着离群点（Outliers）对拟合结果的影响被极大削弱了
+    ceres::LossFunction* loss_function = new ceres::CauchyLoss(0.1); 
+    // ===================================================================
+
+    // 3. 添加残差块
+    for (size_t i = 0; i < x_data.size(); ++i) {
+        ceres::CostFunction* cost_function = 
+            new ceres::AutoDiffCostFunction<EnergyCostFunctionNewRule, 1, 3>(
+                new EnergyCostFunctionNewRule(x_data[i], y_data[i])
+            );
+        
+        // 把 loss_function 传进去，替代原来的 nullptr
+        problem.AddResidualBlock(cost_function, loss_function, params);
+    }
+
+    // 4. 设置参数边界 (根据大符规则)
+    problem.SetParameterLowerBound(params, 0, 0.780); // a min
+    problem.SetParameterUpperBound(params, 0, 1.045); // a max
+    problem.SetParameterLowerBound(params, 1, 1.884); // w min
+    problem.SetParameterUpperBound(params, 1, 2.000); // w max
+    
+    // 5. 求解配置
+    ceres::Solver::Options options;
+    options.linear_solver_type = ceres::DENSE_QR;
+    options.minimizer_progress_to_stdout = false;
+    options.max_num_iterations = 50;
+
+    ceres::Solver::Summary summary;
+    ceres::Solve(options, &problem, &summary);
+
+    // 6. 更新结果
+    if (summary.IsSolutionUsable()) {
+        this->A0 = params[0];
+        this->w_big = params[1];
+        this->fai = params[2];
+        this->b = 2.090 - this->A0; 
+        
+        // 归一化相位到 [-PI, PI]
+        this->fai = fmod(this->fai, 2.0 * CV_PI);
+        if (this->fai > CV_PI) this->fai -= 2.0 * CV_PI;
+        else if (this->fai < -CV_PI) this->fai += 2.0 * CV_PI;
+        
+        // (可选) 打印调试信息，看看参数是否稳定
+        // std::cout << "[Ceres] A0:" << A0 << " w:" << w_big << " b:" << b << std::endl;
+
+    } else {
+        std::cout << "Ceres fitting failed!" << std::endl;
+    }
+}
+
+void WMPredict::DrawVelocityCurve(
+    const std::deque<double>& velocity_list, 
+    const std::deque<double>& time_list, 
+    cv::Mat& /*unused_canvas*/) // 这里不再使用传入的canvas
+{
+    // 1. 检查数据有效性
+    if (velocity_list.empty() || time_list.empty()) return;
+    size_t count = std::min(velocity_list.size(), time_list.size());
+    if (count < 2) return;
+
+    // 2. 创建独立的黑色画布
+    int h = 400; 
+    int w = 800; 
+    cv::Mat curve_img = cv::Mat::zeros(h, w, CV_8UC3);
+
+    // 3. 设置Y轴范围 [0, 3.0] rad/s (可根据实际情况调整)
+    double min_val = 0.0;
+    double max_val = 3.0; 
+    
+    // 绘制参考线 (1.0 和 2.0 rad/s)
+    int y_1_0 = h - (int)((1.0 - min_val) / (max_val - min_val) * h);
+    int y_2_0 = h - (int)((2.0 - min_val) / (max_val - min_val) * h);
+    
+    cv::line(curve_img, cv::Point(0, y_1_0), cv::Point(w, y_1_0), cv::Scalar(50, 50, 50), 1);
+    cv::putText(curve_img, "1.0", cv::Point(5, y_1_0 - 5), cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(150, 150, 150), 1);
+    
+    cv::line(curve_img, cv::Point(0, y_2_0), cv::Point(w, y_2_0), cv::Scalar(50, 50, 50), 1);
+    cv::putText(curve_img, "2.0", cv::Point(5, y_2_0 - 5), cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(150, 150, 150), 1);
+
+    // 4. 绘制曲线
+    // 只画最近的 N 个点，避免挤在一起
+    int draw_count = std::min((int)count, w); 
+    int start_idx = count - draw_count;
+    
+    double step_x = (double)w / draw_count;
+
+    for (int i = 1; i < draw_count; i++) {
+        int idx = start_idx + i;
+        
+        // --- A. 实测数据 (黄色) ---
+        double val_prev = std::abs(velocity_list[idx-1]);
+        double val_curr = std::abs(velocity_list[idx]);
+
+        int x1 = (int)((i - 1) * step_x);
+        int y1 = h - (int)((val_prev - min_val) / (max_val - min_val) * h);
+        int x2 = (int)(i * step_x);
+        int y2 = h - (int)((val_curr - min_val) / (max_val - min_val) * h);
+
+        y1 = std::clamp(y1, 0, h); y2 = std::clamp(y2, 0, h);
+        cv::line(curve_img, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(0, 255, 255), 2);
+
+        // --- B. 拟合数据 (红色) ---
+        if (this->A0 > 0.1 && this->w_big > 0.1) {
+            double t_prev = time_list[idx-1];
+            double t_curr = time_list[idx];
+
+            double pred_prev = std::abs(this->A0 * std::sin(this->w_big * t_prev + this->fai) + this->b);
+            double pred_curr = std::abs(this->A0 * std::sin(this->w_big * t_curr + this->fai) + this->b);
+
+            int py1 = h - (int)((pred_prev - min_val) / (max_val - min_val) * h);
+            int py2 = h - (int)((pred_curr - min_val) / (max_val - min_val) * h);
+
+            py1 = std::clamp(py1, 0, h); py2 = std::clamp(py2, 0, h);
+            cv::line(curve_img, cv::Point(x1, py1), cv::Point(x2, py2), cv::Scalar(0, 0, 255), 2);
+        }
+    }
+
+    // 图例
+    cv::putText(curve_img, "Real (Yellow)", cv::Point(w-150, 30), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 255), 1);
+    cv::putText(curve_img, "Fit (Red)", cv::Point(w-150, 60), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 0, 255), 1);
+
+    // 5. 显示窗口
+    cv::imshow("Velocity Curve", curve_img);
+    // 注意：这里不需要 waitKey，因为主循环里通常已经有了
+}
+
 /**
  * @description: 打符主流程
  * @param {Translator} &translator  串口消息
@@ -103,108 +266,58 @@ WMPredict::WMPredict(GlobalParam &gp) {
  */
 int WMPredict::StartPredict(Translator &translator, GlobalParam &gp,
                             WMIdentify &WMI) {
-  //  if (BulletSpeedProcess(translator) == 0) {
-  //         std::cout << "氮素小，不预测" << std::endl;
-  //     return 0;
-  //  }
   if (translator.message.armor_flag != 12) {
     std::cout << "Detection Failed!" << std::endl;
     return 0;
   }
+  
+  // 大符模式的数据量检查
   if (translator.message.status % 5 == 3) {
     if (WMI.getListStat() == 0) {
       std::cout << "数据不足，不预测" << std::endl;
-      return 0; // 如果无效，直接返回
+      return 0;
     }
   }
 
-  // LOG_IF(INFO, gp.switch_INFO) << "识别成功，开始预测";
-
   this->UpdateData(WMI, translator);
 
-  if (translator.message.status % 5 == 3) { // 原本可能用于区分大小符
+  if (translator.message.status % 5 == 3) { // 大符逻辑
     if (WMI.getAngleVelocityList().size() >= gp.list_size) {
-      if (!got_angle_velocity) {
-        // if (fit_count < MAX_FIT_COUNT) { // 控制拟合次数的逻辑
-        if (true) { // 当前强制执行拟合
-          //  std::cout << "拟合 (" << fit_count + 1 << "/" << MAX_FIT_COUNT <<
-          //  ")"
-          //            << std::endl;
+        
+        // 1. 准备数据 (Ceres 需要绝对值)
+        std::deque<double> y_data_abs = WMI.getAngleVelocityList();
+        for(auto& v : y_data_abs) { v = std::abs(v); }
+        
+        // 2. 直接调用拟合
+        // 因为加了 CauchyLoss，这里不需要手动剔除离群点了
+        this->CeresFittingNewRule(WMI.getTimeList(), y_data_abs);
 
-          // 3.2.1 调用 ConvexOptimization 进行参数拟合
-          this->ConvexOptimization(WMI.getTimeList(),
-                                   WMI.getAngleVelocityList(), gp, translator);
-
-          w_big_fits.push_back(this->w_big);
-          A0_fits.push_back(this->A0);
-          fai_fits.push_back(this->fai);
-          b_fits.push_back(this->b);
-
-          fit_count++;
-
-          if (fit_count >= MAX_FIT_COUNT) {
-            double w_big_sum = 0.0, A0_sum = 0.0, fai_sum = 0.0, b_sum = 0.0;
-
-            for (int i = 0; i < MAX_FIT_COUNT; i++) {
-              w_big_sum += w_big_fits[i];
-              A0_sum += A0_fits[i];
-              fai_sum += fai_fits[i];
-              b_sum += b_fits[i];
-            }
-
-            fixed_w_big = w_big_sum / MAX_FIT_COUNT;
-            fixed_A0 = A0_sum / MAX_FIT_COUNT;
-            fixed_b = b_sum / MAX_FIT_COUNT;
-
-            params_fixed = false;
-
-            std::cout << "拟合参数：" << std::endl;
-            std::cout << "w_big: " << this->w_big << std::endl;
-            std::cout << "A0: " << this->A0 << std::endl;
-            std::cout << "b: " << this->b << std::endl;
-            std::cout << "fai: " << this->fai << std::endl;
-
-            w_big_fits.clear();
-            A0_fits.clear();
-            fai_fits.clear();
-            b_fits.clear();
-          }
-        }
-      } else {
-        // LOG_IF(INFO, gp.switch_INFO)
-        // << "使用已拟合参数: w=" << this->w_big << ", A0=" << this->A0;
-      }
     } else {
-      // LOG_IF(INFO, gp.switch_INFO)
-      // << "数据不够，不拟合 getAngleVelocityList().size() : "
-      // << WMI.getAngleVelocityList().size();
-      return 0; // 数据不够则返回
+      return 0; // 数据不够
     }
-    // this->NewtonDspBig(WMI.getLastRotAngle(), WMI.getAlpha(), translator, gp,
-    // WMI.getR_yaw()); // 备用或旧方法
+    
+    // 3. 预测
     this->NewtonDspBigAnyPos(WMI.getTransformationMatrix(), translator, gp,
                              WMI.getLastAngle(), WMI.getLastRotAngle());
-                             translator.message.armor_flag = 11;
-    // this->NewtonDspSmallAnyPos(WMI.getTransformationMatrix(), translator, gp,
-    // WMI.getLastAngle()); // 备用或旧方法
-  } else {
-    // this->clockwise = 0;
-    if (this->clockwise != -1) {
-      // 为小符设置参数，使其适用于 NewtonDspBigAnyPos 的恒定角速度模型
-      this->A0 = 0.0;
-      this->b = 1.047197551; // 小符的角速度大小
-      // this->b = 0; // 小符的角速度大小
-      this->w_big = 1.0; // 当 A0 为 0 时，此参数影响不大，设为非零良性值
-      this->fai = 0.0; // 当 A0 为 0 时，此参数影响不大
+    translator.message.armor_flag = 11;
 
-      // 调用 NewtonDspBigAnyPos 进行小符弹道预测和姿态解算
+  } else { // 小符逻辑
+    if (this->clockwise != -1) {
+      this->A0 = 0.0;
+      this->b = 1.047197551;
+      this->w_big = 1.0;
+      this->fai = 0.0;
+
       this->NewtonDspBigAnyPos(WMI.getTransformationMatrix(), translator, gp,
                                WMI.getLastAngle(), WMI.getLastRotAngle());
-                               translator.message.armor_flag = 11;
+      translator.message.armor_flag = 11;
     } else {
       std::cout << "小符方向未确定，不预测" << std::endl;
     }
   }
+  
+  // 画图调试
+  DrawVelocityCurve(WMI.getAngleVelocityList(), WMI.getTimeList(), this->debugImg);
   
   return 1;
 }
