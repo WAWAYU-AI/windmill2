@@ -25,7 +25,7 @@ length_width_ratio_threshold: 2.5 # 长宽比阈值
 minContourArea: 150 # 最小轮廓面积
 target_circle_area_min: 4000
 target_circle_area_max: 15000
-R_area_min: 300
+R_area_min: 250
 R_area_max: 1800
 
 #=====================================Identify=====================================#
@@ -38,11 +38,11 @@ d_RP2: 0.825
 gap: 0
 gap_control: 1
 
-tx_cam2cloud: 0.25
+tx_cam2cloud: 0.253
 tx_cam2cloud_1: -0.254
 # 0
 # ty_cam2cloud: -1.42
-ty_cam2cloud: -0.20
+ty_cam2cloud: -0.193
 ty_cam2cloud_1: -0.38
 # -1.5
 # I0514 23:24:51.224388 234896 MessageManager.cpp:225] 当前crc: 0
@@ -50,4 +50,4 @@ tz_cam2cloud: -0.4208
 tz_cam2cloud_1: -0.4208   # 远距离也使用相同值
 # -0.2
 
-delta_t: 0.05
+delta_t: 0.07            #偏慢则往大调

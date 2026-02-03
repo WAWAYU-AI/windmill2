@@ -229,7 +229,7 @@ KeyPoints identify_initial_shapes(const std::vector<std::vector<cv::Point>> &con
           // 准则：
           // - 矩形度 extent 应该在 0.70 以上
           // - 逼近后的顶点数应该在 3 到 6 之间
-          if (extent > 0.45 && approx.size() >= 2 && approx.size() <= 6) {
+          if (extent > 0.45 && approx.size() >= 3 && approx.size() <= 6) {
               is_potential_rect_contour_flags[i] = true;
           } else {
               // --- 修正后的打印逻辑 ---
@@ -317,6 +317,7 @@ std::vector<cv::Point2f> refine_rectangles_roi(
   std::vector<int> candidate_indices;
   std::vector<cv::Point2f> candidate_centers_coords;
 
+  // 1. 初步筛选
   for (int i = 0; i < (int)all_contours.size(); ++i) {
     if (is_potential_rect_contour_flags[i]) {
       cv::Moments m = cv::moments(all_contours[i]);
@@ -331,71 +332,79 @@ std::vector<cv::Point2f> refine_rectangles_roi(
   for (size_t k = 0; k < candidate_indices.size(); ++k) {
     int idx = candidate_indices[k];
     
-    // 获取ROI
+    // ================= 方法一：填充率判断 (Solidity) =================
+    // 不需要扣图，直接算几何属性
+    cv::RotatedRect r_rect = cv::minAreaRect(all_contours[idx]);
+    double contour_area = cv::contourArea(all_contours[idx]);
+    double rect_area = r_rect.size.width * r_rect.size.height;
+    
+    // 计算填充率 (轮廓面积 / 旋转矩形面积)
+    // 流水灯条因为有空隙，填充率通常较低 (0.3 ~ 0.6)
+    // 实心物体填充率通常很高 (> 0.8)
+    double solidity = 0.0;
+    if (rect_area > 0) solidity = contour_area / rect_area;
+
+    // ================= 方法二：强腐蚀分块法 =================
+    // 依然需要一个小 ROI 来做图像处理，但不需要太精确
     cv::Rect roi_rect = cv::boundingRect(all_contours[idx]);
-    roi_rect.x = std::max(0, roi_rect.x); roi_rect.y = std::max(0, roi_rect.y);
-    roi_rect.width = std::min(roi_rect.width, processed_image.cols - roi_rect.x);
-    roi_rect.height = std::min(roi_rect.height, processed_image.rows - roi_rect.y);
+    // 稍微扩大一点 ROI，防止边缘被切断，保证处理完整性
+    roi_rect.x = std::max(0, roi_rect.x - 5);
+    roi_rect.y = std::max(0, roi_rect.y - 5);
+    roi_rect.width = std::min(roi_rect.width + 10, processed_image.cols - roi_rect.x);
+    roi_rect.height = std::min(roi_rect.height + 10, processed_image.rows - roi_rect.y);
+
     if (roi_rect.width <= 0 || roi_rect.height <= 0) continue;
 
+    // 提取 ROI (直接用单通道，不需要转灰度再二值化，直接用原图二值化后的结果更准)
+    // 这里假设 processed_image 是原图。我们需要重新在局部做一次二值化。
     cv::Mat roi_gray;
     if (processed_image(roi_rect).channels() == 3) 
         cv::cvtColor(processed_image(roi_rect), roi_gray, cv::COLOR_BGR2GRAY);
     else 
         roi_gray = processed_image(roi_rect).clone();
-
-    // ==========================================================
-    // [核心修改] 使用“原汁原味”的轮廓创建完美贴合的掩码
-    // ==========================================================
-    
-    // 1. 创建全黑掩码
-    cv::Mat mask = cv::Mat::zeros(roi_gray.size(), CV_8UC1);
-
-    // 2. 将全图坐标系下的轮廓，平移转换到 ROI 小图坐标系下
-    //    方法：直接创建一个包含单个轮廓的 vector，每个点减去 ROI 左上角坐标
-    std::vector<cv::Point> offset_contour;
-    // 使用 reserve 稍微优化一点性能，避免多次内存分配
-    offset_contour.reserve(all_contours[idx].size()); 
-    cv::Point tl = roi_rect.tl(); // 矩形左上角坐标
-    
-    for (const auto& p : all_contours[idx]) {
-        offset_contour.push_back(p - tl); // 坐标平移
-    }
-
-    // 3. 在掩码上画出实心的白色轮廓
-    //    thickness = -1 (cv::FILLED) 表示填充内部
-    std::vector<std::vector<cv::Point>> contours_to_draw = { offset_contour };
-    cv::drawContours(mask, contours_to_draw, 0, cv::Scalar(255), -1);
-
-    // [可选可视化] 看看掩码是否真的完美贴合
-    //if (debug_flag) {
-    //    cv::imshow("Perfect Mask ID:" + std::to_string(idx), mask);
-    //    cv::Mat masked_roi_gray;
-    //    roi_gray.copyTo(masked_roi_gray, mask);
-    //    cv::imshow("Perfectly Masked ROI ID:" + std::to_string(idx), masked_roi_gray);
-    //}
-
-    // 4. 带掩码计算标准差
-    cv::Scalar mean, stddev;
-    cv::meanStdDev(roi_gray, mean, stddev, mask);
-    double br_std = stddev.val[0];
-    std::cout << "矩形ID:" << idx << " 标准差:" << br_std << std::endl;
-    // ==========================================================
-
+        
     cv::Mat roi_bin;
     cv::threshold(roi_gray, roi_bin, gp.thresholdValue_for_roi, 255, cv::THRESH_BINARY);
-    std::vector<std::vector<cv::Point>> roi_cnts;
-    cv::findContours(roi_bin, roi_cnts, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
 
-    int inner_cnt = 0;
-    for (const auto& c : roi_cnts) if (cv::contourArea(c) > 5.0) inner_cnt++;
+    // 【关键步骤】强力腐蚀
+    // 使用较大的核，把粘连的箭头强行断开
+    // 3x3 可能不够，针对大目标可能需要 5x5 或更大，这里先用 3x3 迭代 2 次
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(1, 1));
+    cv::erode(roi_bin, roi_bin, kernel, cv::Point(-1,-1), 1); // iterations = 2
 
-    if (inner_cnt > 8 || br_std < 0.0) {
+    // 找轮廓计数
+    std::vector<std::vector<cv::Point>> sub_contours;
+    cv::findContours(roi_bin, sub_contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+    
+    int valid_blobs = 0;
+    for(const auto& cnt : sub_contours) {
+        if(cv::contourArea(cnt) > 0) valid_blobs++; // 过滤噪点
+    }
+
+    // ================= 综合判断 =================
+    // 条件1：腐蚀后分裂成多个块 (说明是断续的) -> 肯定是流水灯条
+    // 条件2：填充率适中 (说明中间有空隙) -> 也就是 solidity < 0.75
+    
+    bool is_flowing_light = false;
+
+    // 逻辑：如果分裂成了超过2个块，或者填充率比较低(说明空心)，认为是流水灯条
+    if (valid_blobs >= 2 || (solidity < 0.75 && valid_blobs > 0)) {
+        is_flowing_light = true;
+    }
+
+    if (is_flowing_light) {
       final_rect_centers_list.push_back(candidate_centers_coords[k]);
       final_selected_rect_flags[idx] = true;
     } else {
       if (debug_flag) {
-          printf("[矩形ROI过滤] ID:%d 内部轮廓:%d(需>8) 标准差:%.1f(需>20.0)\n", idx, inner_cnt, br_std);
+          printf("[矩形过滤失败] ID:%d 填充率:%.2f(需<0.75) 分块数:%d(需>=2)\n", 
+                 idx, solidity, valid_blobs);
+          
+          // 可视化调试
+          if (valid_blobs > 0) { // 画一下腐蚀后的样子
+              std::string win_name = "Eroded Check ID:" + std::to_string(idx);
+              cv::imshow(win_name, roi_bin);
+          }
       }
     }
   }
