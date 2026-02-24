@@ -38,11 +38,11 @@ d_RP2: 0.825
 gap: 0
 gap_control: 1
 
-tx_cam2cloud: 0.253
+tx_cam2cloud: -0.145          # 调整摄像头到云台的平移参数，偏左则往大调
 tx_cam2cloud_1: -0.254
 # 0
 # ty_cam2cloud: -1.42
-ty_cam2cloud: -0.193
+ty_cam2cloud: 0.020           # 调整摄像头到云台的平移参数，偏高则往大调
 ty_cam2cloud_1: -0.38
 # -1.5
 # I0514 23:24:51.224388 234896 MessageManager.cpp:225] 当前crc: 0
@@ -50,4 +50,4 @@ tz_cam2cloud: -0.4208
 tz_cam2cloud_1: -0.4208   # 远距离也使用相同值
 # -0.2
 
-delta_t: 0.07            #偏慢则往大调
+delta_t: 0.117        #偏慢则往大调
