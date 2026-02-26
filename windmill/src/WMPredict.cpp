@@ -173,8 +173,7 @@ void WMPredict::CeresFittingNewRule(std::deque<double> x_data, std::deque<double
         if (this->fai > CV_PI) this->fai -= 2.0 * CV_PI;
         else if (this->fai < -CV_PI) this->fai += 2.0 * CV_PI;
         
-        // (可选) 打印调试信息，看看参数是否稳定
-        // std::cout << "[Ceres] A0:" << A0 << " w:" << w_big << " b:" << b << std::endl;
+        std::cout << "[Ceres] A0:" << A0 << " w:" << w_big << " b:" << b << std::endl;
 
     } else {
         std::cout << "Ceres fitting failed!" << std::endl;

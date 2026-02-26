@@ -39,6 +39,7 @@ const double Pi = 3.1415926;
  * @return void
  */
 WMIdentify::WMIdentify(GlobalParam &gp) {
+  this->last_distance = 0.0;
   this->gp = &gp;
   // this->gp->list_size = 150;
   this->list_stat = 0;
@@ -334,7 +335,16 @@ void WMIdentify::identifyWM(cv::Mat &input_img, Translator &translator) {
     else{
       std::cout << "distance :" << this->distance << std::endl;
     }
-
+    if(last_distance == 0.0){
+      last_distance = this->distance;
+    }
+    else if(std::abs(this->distance - last_distance) > 0.5){
+      this->distance = last_distance;
+    }
+    else{
+      last_distance = this->distance;
+    }
+    
     cv::Point3f Top_world = cv::Point3f(this->gp->d_RP2, 0, 0);
     // 将Point3f转换为Mat格式(4x1矩阵,齐次坐标)
     cv::Mat Top_world_mat =

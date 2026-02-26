@@ -391,6 +391,11 @@ std::vector<cv::Point2f> refine_rectangles_roi(
     if (valid_blobs >= 2 || (solidity < 0.75 && valid_blobs > 0)) {
         is_flowing_light = true;
     }
+    std::cout << "ID:" << idx 
+              << " 填充率:" << solidity 
+              << " 分块数:" << valid_blobs 
+              << " 判定:" << (is_flowing_light ? "流水灯条" : "非流水灯条") 
+              << std::endl;
 
     if (is_flowing_light) {
       final_rect_centers_list.push_back(candidate_centers_coords[k]);
@@ -401,9 +406,9 @@ std::vector<cv::Point2f> refine_rectangles_roi(
                  idx, solidity, valid_blobs);
           
           // 可视化调试
-          if (valid_blobs > 0) { // 画一下腐蚀后的样子
-              std::string win_name = "Eroded Check ID:" + std::to_string(idx);
-              cv::imshow(win_name, roi_bin);
+          //if (valid_blobs > 0) { // 画一下腐蚀后的样子
+          //    std::string win_name = "Eroded Check ID:" + std::to_string(idx);
+          //    cv::imshow(win_name, roi_bin);
           }
       }
     }
@@ -782,7 +787,7 @@ DetectionResult detect(const cv::Mat &inputImage, WMBlade &blade,
   auto start_time = high_resolution_clock::now();
 
   Mat final_mask = preprocess(inputImage, gp, is_blue, translator);
-  //cv::imshow("Final Mask", final_mask);  // 可选：是否显示二值化结果
+  cv::imshow("Final Mask", final_mask);  // 显示二值化结果
 
   Mat processedImage = inputImage.clone(); // 克隆一份用于绘图
 

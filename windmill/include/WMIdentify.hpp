@@ -17,6 +17,7 @@
 
 class WMIdentify {
 private:
+  double last_distance = 0.0;
   int switch_INFO;  //<! 是否开启INFO级别的日志
   int switch_ERROR; //<! 是否开启ERROR级别的日志
   GlobalParam *gp;

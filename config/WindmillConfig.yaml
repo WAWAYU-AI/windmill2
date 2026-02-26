@@ -2,7 +2,7 @@
 ---
 
 #=====================================Detection=====================================#
-circularityThreshold: 30 # 圆度阈值
+circularityThreshold: 45 # 圆度阈值
 medianBlurSize: 3        # 中值滤波核大小
 medianBlurSize_1: 5
 
@@ -38,7 +38,7 @@ d_RP2: 0.825
 gap: 0
 gap_control: 1
 
-tx_cam2cloud: -0.145          # 调整摄像头到云台的平移参数，偏左则往大调
+tx_cam2cloud: -0.1525        # 调整摄像头到云台的平移参数，偏左则往大调
 tx_cam2cloud_1: -0.254
 # 0
 # ty_cam2cloud: -1.42
